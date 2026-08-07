@@ -34,6 +34,53 @@
         <div class="stat-value">{{ pending_reviews }}</div>
         <div class="stat-label">Pending Reviews</div>
     </div>
+    <div class="stat-card">
+        <div class="stat-icon red"><i class="fas fa-inbox"></i></div>
+        <div class="stat-value">{{ unassigned_reviews }}</div>
+        <div class="stat-label">Unassigned Cases</div>
+    </div>
+</div>
+
+<div class="card-modern" style="margin-bottom:24px;border-left:4px solid var(--primary);">
+    <div class="card-header-modern" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <h5><i class="fas fa-user-tag" style="color:var(--primary);"></i> Case Assignment Queue</h5>
+        <span style="font-size:12px;color:var(--text-muted);">{{ unassigned_reviews }} unassigned &middot; {{ assigned_open_reviews }} assigned/open</span>
+    </div>
+    {% if assignment_queue %}
+    <div class="table-container"><table>
+        <thead><tr><th>Case</th><th>AI Prediction</th><th>Confidence</th><th>Spread</th><th>Status</th><th>Current Owner</th><th>Assign Fact-Checker</th></tr></thead>
+        <tbody>
+        {% for audit in assignment_queue %}
+        <tr>
+            <td style="font-weight:800;">FC-{{ audit.id }}</td>
+            <td><span class="badge-modern {{ audit.predicted_label|lower }}">{{ audit.predicted_label }}</span></td>
+            <td>{% if audit.prediction_record %}{{ "%.1f"|format(audit.prediction_record.confidence) }}%{% else %}&mdash;{% endif %}</td>
+            <td style="font-weight:800;color:{{ 'var(--danger)' if audit.spread_record and audit.spread_record.submission_count >= 5 else 'var(--text-muted)' }};">{{ audit.spread_record.submission_count if audit.spread_record else 1 }}x</td>
+            <td><span style="font-size:12px;font-weight:700;">{{ audit.review_status|replace('_',' ')|title }}</span></td>
+            <td>{{ audit.assignee.username if audit.assignee else 'Unassigned' }}</td>
+            <td>
+                <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;">
+                    <form method="POST" action="{{ url_for('admin.assign_audit', audit_id=audit.id) }}" style="display:flex;gap:7px;align-items:center;">
+                        <select class="form-input" name="assignee_id" required style="padding:7px 9px;min-width:150px;font-size:12px;">
+                            <option value="">Choose reviewer</option>
+                            {% for checker in fact_checkers %}<option value="{{ checker.id }}" {% if audit.assigned_to_id == checker.id %}selected{% endif %}>{{ checker.username }}</option>{% endfor %}
+                        </select>
+                        <button class="btn-modern primary" type="submit" style="padding:7px 10px;font-size:11px;">{{ 'Reassign' if audit.assignee else 'Assign' }}</button>
+                    </form>
+                    {% if audit.assignee %}
+                    <form method="POST" action="{{ url_for('admin.unassign_audit', audit_id=audit.id) }}">
+                        <button class="btn-modern outline" type="submit" style="padding:7px 10px;font-size:11px;">Unassign</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty-state"><i class="fas fa-circle-check"></i><h3>No open cases</h3><p>All evidence audits have completed reviews.</p></div>
+    {% endif %}
 </div>
 
 <!-- ═══ REVIEW PROGRESS + AI VS HUMAN ═══ -->

@@ -18,10 +18,11 @@ from flask import (
 )
 from flask_login import login_user, logout_user, login_required, current_user
 import pandas as pd
+from sqlalchemy.exc import IntegrityError
 
 from models import (
     db, User, Prediction, OTP, BatchJob, EvidenceAudit, EvidenceSource,
-    FactCheckReview
+    FactCheckReview, EvidenceAssignmentEvent, ClaimRecord
 )
 from ml_service import MLService, MODEL_NAMES, MODEL_CONFIG
 from email_service import create_otp_record, verify_otp_code, send_otp_email
@@ -29,6 +30,8 @@ from preprocessing import is_somali
 from gemini_service import extract_main_claim, generate_search_queries, semantic_match, verify_same_event
 from source_search import search_somali_sources_with_fallback, search_web_everywhere_with_fallback
 from facebook_search import search_facebook_with_fallback
+from claim_service import claim_fingerprint, find_similar_claim, normalize_claim
+from ensemble_service import run_ensemble
 
 
 FACT_CHECK_DECISIONS = (
@@ -272,6 +275,42 @@ def logout():
 predict_bp = Blueprint('predict', __name__)
 
 
+def _previous_claim_payload(record, match_type, similarity=None):
+    prediction = record.first_prediction
+    audit = record.investigation
+    review = audit.fact_check_review if audit else None
+    return {
+        'match_type': match_type,
+        'similarity': similarity,
+        'claim_text': audit.main_claim if audit and audit.main_claim else record.original_text,
+        'prediction': prediction.prediction if prediction else (
+            audit.predicted_label if audit else 'Pending'
+        ),
+        'confidence': prediction.confidence if prediction else None,
+        'fact_checker_verdict': review.decision if review else 'Awaiting fact-checker review',
+        'reviewed_at': review.updated_at.isoformat() if review else None,
+        'evidence_sources': len(audit.sources) if audit else 0,
+        'submission_count': record.submission_count,
+        'investigation_status': audit.status if audit else 'pending',
+        'review_status': audit.review_status if audit else 'unassigned',
+        'investigation_url': (
+            url_for('predict.previous_investigation', audit_id=audit.id)
+            if audit else None
+        ),
+    }
+
+
+def _increment_claim_spread(record):
+    ClaimRecord.query.filter(ClaimRecord.id == record.id).update({
+        ClaimRecord.submission_count: ClaimRecord.submission_count + 1,
+        ClaimRecord.last_submitted_at: datetime.utcnow(),
+    }, synchronize_session=False)
+    db.session.commit()
+    refreshed = db.session.get(ClaimRecord, record.id)
+    db.session.refresh(refreshed)
+    return refreshed
+
+
 @predict_bp.route('/predict', methods=['GET', 'POST'])
 @login_required
 def index():
@@ -315,17 +354,60 @@ def index():
                            search_queries=search_queries, reported_by=reported_by)
 
 
+@predict_bp.route('/investigation/<int:audit_id>')
+@login_required
+def previous_investigation(audit_id):
+    audit = EvidenceAudit.query.get_or_404(audit_id)
+    if audit.status not in ('complete', 'failed'):
+        flash('This previous investigation is still being prepared.', 'info')
+        return redirect(url_for('predict.index'))
+    sources = EvidenceSource.query.filter_by(audit_id=audit.id).order_by(
+        EvidenceSource.similarity_score.desc()
+    ).all()
+    try:
+        queries = json.loads(audit.queries_json or '[]')
+    except (TypeError, ValueError):
+        queries = []
+    return render_template(
+        'history/evidence_detail.html', audit=audit, sources=sources,
+        queries=queries, previous_view=True,
+    )
+
+
 @predict_bp.route('/api/predict', methods=['POST'])
 @login_required
 def api_predict():
     data = request.get_json() or {}
     text = (data.get('text') or '').strip()
     model_key = data.get('model', 'sombertb')
+    prediction_mode = data.get('mode', 'single')
+    if prediction_mode not in ('single', 'ensemble'):
+        return jsonify({'error': 'Select a valid prediction mode.'}), 400
 
     if not text:
         return jsonify({'error': 'Please enter some text.'}), 400
     if not is_somali(text):
         return jsonify({'error': 'Text must be in Somali.'}), 400
+
+    fingerprint = claim_fingerprint(text)
+    exact_record = ClaimRecord.query.filter_by(fingerprint=fingerprint).first()
+    if exact_record:
+        exact_record = _increment_claim_spread(exact_record)
+        return jsonify({
+            'duplicate_match': 'exact',
+            'reuse_previous': True,
+            'text': text,
+            'previous_claim': _previous_claim_payload(exact_record, 'exact'),
+        })
+
+    recent_claims = (
+        ClaimRecord.query
+        .filter(ClaimRecord.first_prediction_id.isnot(None))
+        .order_by(ClaimRecord.last_submitted_at.desc())
+        .limit(250)
+        .all()
+    )
+    similar_record, similar_score = find_similar_claim(text, recent_claims)
 
     from gemini_service import is_political
     political_scope = is_political(text)
@@ -338,38 +420,85 @@ def api_predict():
         return jsonify({
             'prediction': 'Not Political',
             'confidence': 0,
-            'model': model_key,
+            'model': 'All Models - Ensemble' if prediction_mode == 'ensemble' else model_key,
             'badge_color': '#64748b',
             'analysis': 'Qoraalkani ma khuseeyo siyaasad ama maamul dowladeed. Nidaamkani wuxuu falanqeeyaa oo keliya xogta siyaasadeed.',
             'text': text,
-            'model_key': model_key,
+            'model_key': 'ensemble' if prediction_mode == 'ensemble' else model_key,
             'not_political': True,
         })
 
     ml = MLService()
-    prediction, proba = ml.predict(text, model_key)
-    if prediction is None:
-        return jsonify({'error': 'Prediction failed. Please try again.'}), 500
-
-    result = ml.build_result(prediction, proba, model_key)
+    ensemble_result = None
+    if prediction_mode == 'ensemble':
+        ensemble_result = run_ensemble(ml, text)
+        if ensemble_result is None:
+            return jsonify({
+                'error': 'Ensemble prediction requires at least two available models.'
+            }), 503
+        model_key = 'ensemble'
+        result = {
+            'prediction': ensemble_result['prediction'],
+            'confidence': ensemble_result['average_confidence'],
+            'model': 'All Models - Ensemble',
+            'badge_color': ensemble_result['badge_color'],
+        }
+    else:
+        prediction, proba = ml.predict(text, model_key)
+        if prediction is None:
+            return jsonify({'error': 'Prediction failed. Please try again.'}), 500
+        result = ml.build_result(prediction, proba, model_key)
 
     prediction_record = Prediction(
         user_id=current_user.id, text=text[:1000],
         prediction=result['prediction'], confidence=result['confidence'],
         model_used=model_key,
     )
-    db.session.add(prediction_record)
-    db.session.commit()
+    claim_record = ClaimRecord(
+        fingerprint=fingerprint,
+        normalized_text=normalize_claim(text),
+        original_text=text[:5000],
+        first_prediction=prediction_record,
+        submission_count=1,
+        first_submitted_at=datetime.utcnow(),
+        last_submitted_at=datetime.utcnow(),
+    )
+    db.session.add_all([prediction_record, claim_record])
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # A concurrent request registered the same exact claim first.
+        db.session.rollback()
+        exact_record = ClaimRecord.query.filter_by(fingerprint=fingerprint).first()
+        if exact_record:
+            exact_record = _increment_claim_spread(exact_record)
+            return jsonify({
+                'duplicate_match': 'exact',
+                'reuse_previous': True,
+                'text': text,
+                'previous_claim': _previous_claim_payload(exact_record, 'exact'),
+            })
+        raise
 
     pred_lower = result['prediction'].lower()
-    if pred_lower == 'reliable':
+    if ensemble_result:
+        analysis = (
+            f"{ensemble_result['winning_count']} of {ensemble_result['total_models']} "
+            f"models voted {result['prediction']}. Model agreement is "
+            f"{ensemble_result['agreement']:.1f}%, while the average confidence "
+            f"of models voting for the final class is "
+            f"{ensemble_result['average_confidence']:.1f}%. These are separate measures."
+        )
+        if ensemble_result.get('tie_break'):
+            analysis += ' ' + ensemble_result['tie_break']
+    elif pred_lower == 'reliable':
         analysis = 'Moodalku wuxuu qoraalkan u kala saaray Reliable isagoo ku salaynaya qaababka luqadeed ee uu ka bartay xogta tababarka. Tani ma aha xaqiijin kama dambays ah; ilaha la helay iyo qiimaynta fact-checker-ka waa in si gaar ah loo eegaa.'
     elif pred_lower == 'misinformation':
         analysis = 'Moodalku wuxuu qoraalkan u kala saaray Misinformation isagoo ku salaynaya qaababka luqadeed ee uu ka bartay xogta tababarka. Saadaashu kaligeed ma caddaynayso in sheegashadu been tahay; ilaha iyo go’aanka fact-checker-ka ayaa loo baahan yahay.'
     else:
         analysis = 'Moodalku wuxuu qoraalkan u kala saaray Misleading isagoo ku salaynaya qaababka luqadeed ee uu ka bartay xogta tababarka. Macnaha guud, taariikhda, ilaha, iyo go’aanka fact-checker-ka waa in la hubiyaa ka hor xukun kama dambays ah.'
 
-    return jsonify({
+    response_payload = {
         'prediction': result['prediction'],
         'confidence': result['confidence'],
         'model': result['model'],
@@ -378,7 +507,16 @@ def api_predict():
         'text': text,
         'model_key': model_key,
         'prediction_id': prediction_record.id,
-    })
+    }
+    if ensemble_result:
+        response_payload['prediction_mode'] = 'ensemble'
+        response_payload['ensemble'] = ensemble_result
+    if similar_record:
+        response_payload['duplicate_match'] = 'similar'
+        response_payload['previous_claim'] = _previous_claim_payload(
+            similar_record, 'similar', similar_score
+        )
+    return jsonify(response_payload)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -691,6 +829,12 @@ def api_fact_check():
     db.session.add(audit)
     db.session.commit()
     audit_id = audit.id
+    claim_record = ClaimRecord.query.filter_by(
+        fingerprint=claim_fingerprint(text)
+    ).first()
+    if claim_record and claim_record.investigation_audit_id is None:
+        claim_record.investigation_audit_id = audit.id
+        db.session.commit()
 
     def sse(event, payload):
         return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
@@ -767,7 +911,7 @@ def api_fact_check():
                     'audit_id': audit_id,
                     'evidence': evidence,
                     'provider_counts': provider_counts,
-                    'notice': 'Evidence audit saved. A fact-checker can review the AI prediction and sources before issuing a final decision.',
+                    'notice': 'Evidence audit saved. An admin can assign the case to a fact-checker for a final human decision.',
                 })
             else:
                 yield sse('empty', {
@@ -1245,6 +1389,29 @@ def fact_checker_required(f):
     return decorated
 
 
+def _record_assignment_event(audit, action, from_assignee_id=None, to_assignee_id=None):
+    db.session.add(EvidenceAssignmentEvent(
+        audit=audit,
+        actor_id=current_user.id,
+        from_assignee_id=from_assignee_id,
+        to_assignee_id=to_assignee_id,
+        action=action,
+    ))
+
+
+def _can_manage_review(audit):
+    return current_user.is_admin or audit.assigned_to_id == current_user.id
+
+
+def _case_risk_rank(audit):
+    confidence = audit.prediction_record.confidence if audit.prediction_record else 0
+    if audit.predicted_label == 'Misinformation':
+        return 'critical' if confidence >= 90 else ('high' if confidence >= 75 else 'medium')
+    if audit.predicted_label == 'Misleading':
+        return 'high' if confidence >= 80 else ('medium' if confidence >= 60 else 'uncertain')
+    return 'low' if confidence >= 80 else 'uncertain'
+
+
 @fact_checker_bp.route('/dashboard')
 @fact_checker_required
 def dashboard():
@@ -1252,50 +1419,55 @@ def dashboard():
     from sqlalchemy import func, case
 
     # --- Counts ---
-    complete_audits = EvidenceAudit.query.filter(EvidenceAudit.status == 'complete')
+    complete_audits = EvidenceAudit.query.filter(
+        EvidenceAudit.status == 'complete',
+        EvidenceAudit.assigned_to_id == current_user.id,
+    )
 
-    pending_count = (
-        complete_audits.outerjoin(FactCheckReview)
-        .filter(FactCheckReview.id.is_(None))
+    pending_count = complete_audits.filter(EvidenceAudit.review_status == 'pending').count()
+    reviewed_count = (
+        EvidenceAudit.query.join(FactCheckReview)
+        .filter(FactCheckReview.reviewer_id == current_user.id)
         .count()
     )
-    reviewed_count = complete_audits.join(FactCheckReview).count()
     total_count = complete_audits.count()
+    unassigned_count = EvidenceAudit.query.filter(
+        EvidenceAudit.status == 'complete',
+        EvidenceAudit.assigned_to_id.is_(None),
+        EvidenceAudit.review_status == 'unassigned',
+    ).count()
 
-    # High-risk: Misinformation/Misleading with confidence >= 70
-    high_risk_count = (
-        complete_audits.outerjoin(FactCheckReview)
-        .filter(FactCheckReview.id.is_(None))
-        .filter(EvidenceAudit.predicted_label.in_(['Misinformation', 'Misleading']))
-        .filter(
-            EvidenceAudit.prediction_id.isnot(None)
-        )
-        .count()
+    open_assigned = complete_audits.filter(
+        EvidenceAudit.review_status.in_(['pending', 'under_review'])
+    ).all()
+    high_risk_count = sum(
+        1 for audit in open_assigned
+        if _case_risk_rank(audit) in ('critical', 'high')
     )
 
-    # Under review = audits with a review but not yet given a final decision
-    # (Currently our model has one review per audit, so this is 0 in practice.
-    #  We approximate as "reviewed in last 24h" for now.)
-    from datetime import timedelta
-    under_review_count = (
-        complete_audits.join(FactCheckReview)
-        .filter(FactCheckReview.updated_at >= datetime.utcnow() - timedelta(hours=24))
-        .filter(FactCheckReview.decision == 'Insufficient Evidence')
-        .count()
-    )
+    under_review_count = complete_audits.filter(
+        EvidenceAudit.review_status == 'under_review'
+    ).count()
 
     # --- Priority Queue: pending audits sorted by risk then date ---
     priority_audits = (
         EvidenceAudit.query
-        .filter(EvidenceAudit.status == 'complete')
-        .outerjoin(FactCheckReview)
-        .filter(FactCheckReview.id.is_(None))
+        .outerjoin(
+            ClaimRecord,
+            ClaimRecord.investigation_audit_id == EvidenceAudit.id,
+        )
+        .filter(
+            EvidenceAudit.status == 'complete',
+            EvidenceAudit.assigned_to_id == current_user.id,
+            EvidenceAudit.review_status.in_(['pending', 'under_review']),
+        )
         .order_by(
             case(
                 (EvidenceAudit.predicted_label == 'Misinformation', 0),
                 (EvidenceAudit.predicted_label == 'Misleading', 1),
                 else_=2,
             ),
+            db.func.coalesce(ClaimRecord.submission_count, 1).desc(),
             EvidenceAudit.created_at.desc(),
         )
         .limit(10)
@@ -1326,7 +1498,7 @@ def dashboard():
             alerts.append('weak_match')
 
         confidence = audit.prediction_record.confidence if audit.prediction_record else 0
-        risk_level = 'high' if confidence >= 80 else ('medium' if confidence >= 50 else 'low')
+        risk_level = _case_risk_rank(audit)
 
         priority_data.append({
             'audit': audit,
@@ -1344,9 +1516,11 @@ def dashboard():
     # --- Evidence Alerts: pending audits with issues ---
     alert_audits = (
         EvidenceAudit.query
-        .filter(EvidenceAudit.status == 'complete')
-        .outerjoin(FactCheckReview)
-        .filter(FactCheckReview.id.is_(None))
+        .filter(
+            EvidenceAudit.status == 'complete',
+            EvidenceAudit.assigned_to_id == current_user.id,
+            EvidenceAudit.review_status.in_(['pending', 'under_review']),
+        )
         .order_by(EvidenceAudit.created_at.desc())
         .limit(20)
         .all()
@@ -1388,6 +1562,7 @@ def dashboard():
     reviewed_audits = (
         EvidenceAudit.query
         .join(FactCheckReview)
+        .filter(FactCheckReview.reviewer_id == current_user.id)
         .order_by(FactCheckReview.updated_at.desc())
         .limit(50)
         .all()
@@ -1412,6 +1587,7 @@ def dashboard():
     recent_decisions = (
         EvidenceAudit.query
         .join(FactCheckReview)
+        .filter(FactCheckReview.reviewer_id == current_user.id)
         .order_by(FactCheckReview.updated_at.desc())
         .limit(5)
         .all()
@@ -1420,9 +1596,11 @@ def dashboard():
     # --- Next case for "Review Next" button ---
     next_case = (
         EvidenceAudit.query
-        .filter(EvidenceAudit.status == 'complete')
-        .outerjoin(FactCheckReview)
-        .filter(FactCheckReview.id.is_(None))
+        .filter(
+            EvidenceAudit.status == 'complete',
+            EvidenceAudit.assigned_to_id == current_user.id,
+            EvidenceAudit.review_status.in_(['pending', 'under_review']),
+        )
         .order_by(
             case(
                 (EvidenceAudit.predicted_label == 'Misinformation', 0),
@@ -1448,23 +1626,53 @@ def dashboard():
         total_decisions=total_decisions,
         recent_decisions=recent_decisions,
         next_case=next_case,
+        unassigned_count=unassigned_count,
     )
 
 
 @fact_checker_bp.route('/')
 @fact_checker_required
 def index():
+    from sqlalchemy import and_, or_
     page = request.args.get('page', 1, type=int)
     status = request.args.get('status', 'pending')
     query = EvidenceAudit.query.filter(EvidenceAudit.status == 'complete')
 
-    if status == 'reviewed':
-        query = query.join(FactCheckReview)
-    elif status == 'all':
-        pass
+    if status == 'under_review':
+        query = query.filter(
+            EvidenceAudit.assigned_to_id == current_user.id,
+            EvidenceAudit.review_status == 'under_review',
+        )
+    elif status == 'completed':
+        query = query.join(FactCheckReview).filter(
+            FactCheckReview.reviewer_id == current_user.id
+        )
+    elif status == 'high_risk':
+        query = query.join(Prediction, EvidenceAudit.prediction_id == Prediction.id).filter(
+            EvidenceAudit.assigned_to_id == current_user.id,
+            EvidenceAudit.review_status.in_(['pending', 'under_review']),
+            or_(
+                and_(
+                    EvidenceAudit.predicted_label == 'Misinformation',
+                    Prediction.confidence >= 75,
+                ),
+                and_(
+                    EvidenceAudit.predicted_label == 'Misleading',
+                    Prediction.confidence >= 80,
+                ),
+            ),
+        )
+    elif status == 'unassigned':
+        query = query.filter(
+            EvidenceAudit.assigned_to_id.is_(None),
+            EvidenceAudit.review_status == 'unassigned',
+        )
     else:
         status = 'pending'
-        query = query.outerjoin(FactCheckReview).filter(FactCheckReview.id.is_(None))
+        query = query.filter(
+            EvidenceAudit.assigned_to_id == current_user.id,
+            EvidenceAudit.review_status == 'pending',
+        )
 
     audits = query.order_by(EvidenceAudit.created_at.desc()).paginate(
         page=page, per_page=15, error_out=False
@@ -1478,6 +1686,9 @@ def index():
 @fact_checker_required
 def review_detail(audit_id):
     audit = EvidenceAudit.query.get_or_404(audit_id)
+    if not current_user.is_admin and audit.assigned_to_id not in (None, current_user.id):
+        flash('This case is assigned to another fact-checker.', 'danger')
+        return redirect(url_for('fact_checker.index'))
     sources = EvidenceSource.query.filter_by(audit_id=audit.id).order_by(
         EvidenceSource.similarity_score.desc()
     ).all()
@@ -1491,7 +1702,53 @@ def review_detail(audit_id):
         sources=sources,
         queries=queries,
         decisions=FACT_CHECK_DECISIONS,
+        can_manage=_can_manage_review(audit),
+        assignment_events=audit.assignment_events,
     )
+
+
+@fact_checker_bp.route('/audit/<int:audit_id>/claim', methods=['POST'])
+@fact_checker_required
+def claim_case(audit_id):
+    if current_user.is_admin:
+        flash('Admins assign cases from the Admin Dashboard.', 'info')
+        return redirect(url_for('admin.index'))
+    now = datetime.utcnow()
+    updated = EvidenceAudit.query.filter(
+        EvidenceAudit.id == audit_id,
+        EvidenceAudit.status == 'complete',
+        EvidenceAudit.assigned_to_id.is_(None),
+        EvidenceAudit.review_status == 'unassigned',
+    ).update({
+        EvidenceAudit.assigned_to_id: current_user.id,
+        EvidenceAudit.assigned_at: now,
+        EvidenceAudit.review_status: 'pending',
+    }, synchronize_session=False)
+    if updated != 1:
+        db.session.rollback()
+        flash('This case has already been claimed or is unavailable.', 'warning')
+        return redirect(url_for('fact_checker.index', status='unassigned'))
+    audit = db.session.get(EvidenceAudit, audit_id)
+    _record_assignment_event(audit, 'claimed', None, current_user.id)
+    db.session.commit()
+    flash(f'Case #{audit.id} is now assigned to you.', 'success')
+    return redirect(url_for('fact_checker.review_detail', audit_id=audit.id))
+
+
+@fact_checker_bp.route('/audit/<int:audit_id>/start', methods=['POST'])
+@fact_checker_required
+def start_review(audit_id):
+    audit = EvidenceAudit.query.get_or_404(audit_id)
+    if not _can_manage_review(audit):
+        flash('Only the assigned fact-checker can start this review.', 'danger')
+        return redirect(url_for('fact_checker.index'))
+    if audit.review_status == 'pending':
+        audit.review_status = 'under_review'
+        _record_assignment_event(
+            audit, 'review_started', audit.assigned_to_id, audit.assigned_to_id
+        )
+        db.session.commit()
+    return redirect(url_for('fact_checker.review_detail', audit_id=audit.id))
 
 
 @fact_checker_bp.route('/audit/<int:audit_id>/decision', methods=['POST'])
@@ -1501,7 +1758,14 @@ def submit_decision(audit_id):
     if audit.status != 'complete':
         flash('This evidence audit is not complete yet.', 'warning')
         return redirect(url_for('fact_checker.review_detail', audit_id=audit.id))
+    if not _can_manage_review(audit):
+        flash('Only the assigned fact-checker or an admin can decide this case.', 'danger')
+        return redirect(url_for('fact_checker.index'))
+    if audit.review_status not in ('under_review', 'completed'):
+        flash('Start the assigned review before submitting a decision.', 'warning')
+        return redirect(url_for('fact_checker.review_detail', audit_id=audit.id))
 
+    was_completed = audit.review_status == 'completed'
     decision = request.form.get('decision', '').strip()
     explanation = request.form.get('explanation', '').strip()
     if decision not in FACT_CHECK_DECISIONS:
@@ -1519,6 +1783,14 @@ def submit_decision(audit_id):
     review.decision = decision
     review.explanation = explanation
     review.updated_at = datetime.utcnow()
+    audit.review_status = 'completed'
+    if audit.assigned_to_id is None:
+        audit.assigned_to_id = current_user.id
+        audit.assigned_at = datetime.utcnow()
+    _record_assignment_event(
+        audit, 'decision_updated' if was_completed else 'review_completed',
+        audit.assigned_to_id, audit.assigned_to_id,
+    )
     db.session.commit()
     flash('Fact-checker decision saved.', 'success')
     return redirect(url_for('fact_checker.review_detail', audit_id=audit.id))
@@ -1546,6 +1818,7 @@ def admin_required(f):
 def index():
     from datetime import timedelta
     from collections import Counter
+    from sqlalchemy import case
 
     users = User.query.all()
     pred_page = request.args.get('pred_page', 1, type=int)
@@ -1554,6 +1827,7 @@ def index():
     # --- System Stats ---
     total_users = len(users)
     fact_checker_count = sum(1 for u in users if u.role == 'fact_checker')
+    fact_checkers = [u for u in users if u.role == 'fact_checker' and not u.is_blocked]
     admin_count = sum(1 for u in users if u.role == 'admin')
     total_predictions = Prediction.query.count()
     total_batches = BatchJob.query.count()
@@ -1568,6 +1842,33 @@ def index():
         complete_audits.join(FactCheckReview)
         .filter(FactCheckReview.decision == 'Insufficient Evidence')
         .count()
+    )
+    unassigned_reviews = complete_audits.filter(
+        EvidenceAudit.assigned_to_id.is_(None),
+        EvidenceAudit.review_status == 'unassigned',
+    ).count()
+    assigned_open_reviews = complete_audits.filter(
+        EvidenceAudit.assigned_to_id.isnot(None),
+        EvidenceAudit.review_status.in_(['pending', 'under_review']),
+    ).count()
+    assignment_queue = (
+        complete_audits
+        .outerjoin(
+            ClaimRecord,
+            ClaimRecord.investigation_audit_id == EvidenceAudit.id,
+        )
+        .filter(EvidenceAudit.review_status != 'completed')
+        .order_by(
+            case(
+                (EvidenceAudit.predicted_label == 'Misinformation', 0),
+                (EvidenceAudit.predicted_label == 'Misleading', 1),
+                else_=2,
+            ),
+            db.func.coalesce(ClaimRecord.submission_count, 1).desc(),
+            EvidenceAudit.created_at.desc(),
+        )
+        .limit(20)
+        .all()
     )
 
     # --- Prediction Distribution ---
@@ -1654,7 +1955,54 @@ def index():
         total_decisions=total_decisions, high_risk_data=high_risk_data,
         recent_users=recent_users, recent_predictions=recent_predictions,
         recent_audits=recent_audits, recent_predictions_list=recent_predictions_list,
+        fact_checkers=fact_checkers, assignment_queue=assignment_queue,
+        unassigned_reviews=unassigned_reviews,
+        assigned_open_reviews=assigned_open_reviews,
         MODEL_NAMES=MODEL_NAMES)
+
+
+@admin_bp.route('/audit/<int:audit_id>/assign', methods=['POST'])
+@admin_required
+def assign_audit(audit_id):
+    audit = EvidenceAudit.query.get_or_404(audit_id)
+    assignee_id = request.form.get('assignee_id', type=int)
+    assignee = db.session.get(User, assignee_id) if assignee_id else None
+    if audit.status != 'complete' or audit.review_status == 'completed':
+        flash('Only open, completed evidence audits can be assigned.', 'warning')
+        return redirect(url_for('admin.index'))
+    if not assignee or not assignee.is_fact_checker or assignee.is_blocked:
+        flash('Select an active fact-checker.', 'danger')
+        return redirect(url_for('admin.index'))
+    previous_id = audit.assigned_to_id
+    audit.assigned_to_id = assignee.id
+    audit.assigned_by_id = current_user.id
+    audit.assigned_at = datetime.utcnow()
+    audit.review_status = 'pending'
+    _record_assignment_event(
+        audit, 'assigned' if previous_id is None else 'reassigned',
+        previous_id, assignee.id,
+    )
+    db.session.commit()
+    flash(f'Case #{audit.id} assigned to {assignee.username}.', 'success')
+    return redirect(url_for('admin.index'))
+
+
+@admin_bp.route('/audit/<int:audit_id>/unassign', methods=['POST'])
+@admin_required
+def unassign_audit(audit_id):
+    audit = EvidenceAudit.query.get_or_404(audit_id)
+    if audit.review_status == 'completed':
+        flash('A completed case cannot be returned to the queue.', 'warning')
+        return redirect(url_for('admin.index'))
+    previous_id = audit.assigned_to_id
+    audit.assigned_to_id = None
+    audit.assigned_by_id = current_user.id
+    audit.assigned_at = None
+    audit.review_status = 'unassigned'
+    _record_assignment_event(audit, 'unassigned', previous_id, None)
+    db.session.commit()
+    flash(f'Case #{audit.id} returned to the unassigned queue.', 'success')
+    return redirect(url_for('admin.index'))
 
 
 @admin_bp.route('/create_user', methods=['POST'])
@@ -1725,6 +2073,15 @@ def block_user(user_id):
         flash('Cannot block admin.', 'danger')
         return redirect(url_for('admin.index'))
     user.is_blocked = not user.is_blocked
+    if user.is_blocked:
+        for audit in EvidenceAudit.query.filter(
+            EvidenceAudit.assigned_to_id == user.id,
+            EvidenceAudit.review_status != 'completed',
+        ).all():
+            audit.assigned_to_id = None
+            audit.assigned_at = None
+            audit.review_status = 'unassigned'
+            _record_assignment_event(audit, 'unassigned_blocked_user', user.id, None)
     db.session.commit()
     state = 'blocked' if user.is_blocked else 'unblocked'
     flash(f'User {user.username} {state}.', 'success')
@@ -1745,6 +2102,15 @@ def set_role(user_id):
     if new_role not in {'user', 'fact_checker', 'admin'}:
         flash('Invalid user role.', 'danger')
         return redirect(url_for('admin.index'))
+    if user.is_fact_checker and new_role != 'fact_checker':
+        for audit in EvidenceAudit.query.filter(
+            EvidenceAudit.assigned_to_id == user.id,
+            EvidenceAudit.review_status != 'completed',
+        ).all():
+            audit.assigned_to_id = None
+            audit.assigned_at = None
+            audit.review_status = 'unassigned'
+            _record_assignment_event(audit, 'unassigned_role_change', user.id, None)
     user.role = new_role
     db.session.commit()
     flash(f'User {user.username} role set to {user.role}.', 'success')
@@ -1760,6 +2126,14 @@ def delete_user(user_id):
         return redirect(url_for('admin.index'))
     FactCheckReview.query.filter_by(reviewer_id=user.id).update(
         {'reviewer_id': None}, synchronize_session=False
+    )
+    EvidenceAudit.query.filter_by(assigned_to_id=user.id).update({
+        'assigned_to_id': None,
+        'assigned_at': None,
+        'review_status': 'unassigned',
+    }, synchronize_session=False)
+    EvidenceAudit.query.filter_by(assigned_by_id=user.id).update(
+        {'assigned_by_id': None}, synchronize_session=False
     )
     for audit in EvidenceAudit.query.filter_by(user_id=user.id).all():
         db.session.delete(audit)

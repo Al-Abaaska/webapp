@@ -3,9 +3,11 @@
 
 {% block content %}
 <div style="margin-bottom:24px;">
-    <a href="{{ url_for('history.index') }}" style="color:var(--primary);font-size:13px;text-decoration:none;"><i class="fas fa-arrow-left"></i> Prediction history</a>
+    <a href="{{ url_for('predict.index') if previous_view|default(false) else url_for('history.index') }}" style="color:var(--primary);font-size:13px;text-decoration:none;"><i class="fas fa-arrow-left"></i> {{ 'Back to prediction' if previous_view|default(false) else 'Prediction history' }}</a>
     <h1 style="font-size:28px;font-weight:800;color:var(--text);margin:12px 0 6px;">Evidence Audit #{{ audit.id }}</h1>
-    <p style="color:var(--text-muted);font-size:14px;">Retrieved {{ audit.created_at.strftime('%Y-%m-%d %H:%M') }} &middot; {{ audit.status|capitalize }}</p>
+    <p style="color:var(--text-muted);font-size:14px;">Retrieved {{ audit.created_at.strftime('%Y-%m-%d %H:%M') }} &middot; Evidence {{ audit.status|capitalize }} &middot; Review {{ audit.review_status|replace('_',' ')|title }}</p>
+    {% if audit.assignee and not previous_view|default(false) %}<p style="color:var(--text-muted);font-size:12px;margin-top:5px;">Assigned fact-checker: {{ audit.assignee.username }}</p>{% endif %}
+    {% if audit.spread_record %}<p style="color:var(--warning);font-size:13px;font-weight:700;margin-top:7px;"><i class="fas fa-tower-broadcast"></i> Claim Spread Activity: submitted {{ audit.spread_record.submission_count }} time{{ 's' if audit.spread_record.submission_count != 1 else '' }}</p>{% endif %}
 </div>
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-bottom:20px;">
@@ -31,7 +33,7 @@
         {% set review = audit.fact_check_review %}
         <span class="badge-modern {{ 'reliable' if review.decision == 'Confirmed Reliable' else ('misinformation' if review.decision == 'Confirmed Misinformation' else 'misleading') }}">{{ review.decision }}</span>
         <p style="color:var(--text);line-height:1.7;margin-top:16px;">{{ review.explanation }}</p>
-        <p style="font-size:12px;color:var(--text-muted);margin-top:16px;">Reviewed by {{ review.reviewer.username if review.reviewer else 'Deleted account' }} on {{ review.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:16px;">{% if not previous_view|default(false) %}Reviewed by {{ review.reviewer.username if review.reviewer else 'Deleted account' }} on {% else %}Reviewed on {% endif %}{{ review.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
         {% else %}
         <div style="display:flex;gap:10px;align-items:flex-start;color:var(--text-muted);line-height:1.6;">
             <i class="fas fa-clock" style="color:var(--warning);margin-top:4px;"></i>

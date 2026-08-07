@@ -4,8 +4,10 @@
 {% block content %}
 <div style="margin-bottom:24px;">
     <a href="{{ url_for('fact_checker.dashboard') }}" style="color:var(--primary);font-size:13px;text-decoration:none;"><i class="fas fa-arrow-left"></i> Dashboard</a>
-    <h1 style="font-size:28px;font-weight:800;color:var(--text);margin:12px 0 6px;">Audit Review #{{ audit.id }}</h1>
-    <p style="color:var(--text-muted);font-size:14px;">Submitted by {{ audit.user.username }} on {{ audit.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+    <h1 style="font-size:28px;font-weight:800;color:var(--text);margin:12px 0 6px;">Case FC-{{ audit.id }}</h1>
+    <p style="color:var(--text-muted);font-size:14px;">Submitted by {{ audit.user.username }} on {{ audit.created_at.strftime('%Y-%m-%d %H:%M') }} &middot; {{ audit.review_status|replace('_',' ')|title }}</p>
+    <p style="color:var(--text-muted);font-size:13px;margin-top:6px;">Assigned to: <strong>{{ audit.assignee.username if audit.assignee else 'Unassigned' }}</strong>{% if audit.assigner %} by {{ audit.assigner.username }}{% endif %}{% if audit.assigned_at %} on {{ audit.assigned_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}</p>
+    {% if audit.spread_record %}<p style="color:var(--warning);font-size:13px;font-weight:700;margin-top:7px;"><i class="fas fa-tower-broadcast"></i> Claim Spread Activity: {{ audit.spread_record.submission_count }} submissions</p>{% endif %}
 </div>
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;margin-bottom:20px;">
@@ -25,6 +27,20 @@
 
     <div class="card-modern"><div class="card-body-modern">
         <p style="font-size:12px;color:var(--text-muted);font-weight:800;margin-bottom:12px;"><i class="fas fa-user-check"></i> FACT-CHECKER DECISION</p>
+        {% if not audit.assignee and current_user.is_admin %}
+        <p style="color:var(--text-muted);line-height:1.6;">Assign this case to a fact-checker before review begins.</p>
+        <a href="{{ url_for('admin.index') }}" class="btn-modern primary" style="width:100%;justify-content:center;"><i class="fas fa-user-tag"></i> Open Assignment Queue</a>
+        {% elif not audit.assignee %}
+        <p style="color:var(--text-muted);line-height:1.6;">This case must be claimed before review begins.</p>
+        <form method="POST" action="{{ url_for('fact_checker.claim_case', audit_id=audit.id) }}">
+            <button type="submit" class="btn-modern primary" style="width:100%;justify-content:center;"><i class="fas fa-hand"></i> Claim This Case</button>
+        </form>
+        {% elif can_manage and audit.review_status == 'pending' %}
+        <p style="color:var(--text-muted);line-height:1.6;">Start the case when you are ready. Its status will change to Under Review.</p>
+        <form method="POST" action="{{ url_for('fact_checker.start_review', audit_id=audit.id) }}">
+            <button type="submit" class="btn-modern primary" style="width:100%;justify-content:center;"><i class="fas fa-play"></i> Start Review</button>
+        </form>
+        {% elif can_manage and audit.review_status in ['under_review', 'completed'] %}
         <form method="POST" action="{{ url_for('fact_checker.submit_decision', audit_id=audit.id) }}">
             <label class="form-label" for="decision">Final decision</label>
             <select class="form-input" id="decision" name="decision" required>
@@ -38,8 +54,24 @@
         {% if audit.fact_check_review %}
         <p style="font-size:12px;color:var(--text-muted);margin-top:12px;">Last reviewed by {{ audit.fact_check_review.reviewer.username if audit.fact_check_review.reviewer else 'Deleted account' }} on {{ audit.fact_check_review.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
         {% endif %}
+        {% else %}
+        <p style="color:var(--text-muted);line-height:1.6;">Only the assigned fact-checker can manage this review.</p>
+        {% endif %}
     </div></div>
 </div>
+
+{% if assignment_events %}
+<div class="card-modern" style="margin-bottom:20px;"><div class="card-body-modern">
+    <h2 style="font-size:16px;margin-bottom:12px;"><i class="fas fa-clock-rotate-left"></i> Assignment Audit Trail</h2>
+    {% for event in assignment_events|reverse %}
+    <div style="padding:9px 0;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted);">
+        {{ event.created_at.strftime('%Y-%m-%d %H:%M') }} &middot; <strong>{{ event.action|replace('_',' ')|title }}</strong>
+        {% if event.actor %} by {{ event.actor.username }}{% endif %}
+        {% if event.to_assignee %} &rarr; {{ event.to_assignee.username }}{% endif %}
+    </div>
+    {% endfor %}
+</div></div>
+{% endif %}
 
 <div class="card-modern"><div class="card-body-modern">
     <h2 style="font-size:18px;margin-bottom:6px;">Source Evidence ({{ sources|length }})</h2>

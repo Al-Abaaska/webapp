@@ -77,6 +77,7 @@ MODEL_CONFIG = {
 
 # Pretty names for display
 MODEL_NAMES = {k: v['name'] for k, v in MODEL_CONFIG.items()}
+MODEL_NAMES['ensemble'] = 'All Models - Ensemble'
 
 
 def _load_traditional_model(model_name):

@@ -60,6 +60,35 @@ class Prediction(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class ClaimRecord(db.Model):
+    """One exact normalized claim with its reusable investigation and spread count."""
+    __tablename__ = 'claim_records'
+
+    id = db.Column(db.Integer, primary_key=True)
+    fingerprint = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    normalized_text = db.Column(db.Text, nullable=False)
+    original_text = db.Column(db.Text, nullable=False)
+    first_prediction_id = db.Column(
+        db.Integer, db.ForeignKey('predictions.id', ondelete='SET NULL'), nullable=True
+    )
+    investigation_audit_id = db.Column(
+        db.Integer, db.ForeignKey('evidence_audits.id', ondelete='SET NULL'),
+        nullable=True, unique=True,
+    )
+    submission_count = db.Column(db.Integer, default=1, nullable=False)
+    first_submitted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    last_submitted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    first_prediction = db.relationship(
+        'Prediction', foreign_keys=[first_prediction_id],
+        backref=db.backref('claim_record', uselist=False),
+    )
+    investigation = db.relationship(
+        'EvidenceAudit', foreign_keys=[investigation_audit_id],
+        backref=db.backref('spread_record', uselist=False),
+    )
+
+
 class OTP(db.Model):
     """One-time password codes for email verification and password reset."""
     __tablename__ = 'otps'
@@ -108,8 +137,24 @@ class EvidenceAudit(db.Model):
     error_message = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)
+    assigned_to_id = db.Column(
+        db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True
+    )
+    assigned_by_id = db.Column(
+        db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True
+    )
+    assigned_at = db.Column(db.DateTime, nullable=True)
+    review_status = db.Column(db.String(20), default='unassigned', nullable=False)
 
-    user = db.relationship('User', backref='evidence_audits')
+    user = db.relationship('User', foreign_keys=[user_id], backref='evidence_audits')
+    assignee = db.relationship(
+        'User', foreign_keys=[assigned_to_id],
+        backref=db.backref('assigned_evidence_audits', lazy=True),
+    )
+    assigner = db.relationship(
+        'User', foreign_keys=[assigned_by_id],
+        backref=db.backref('assigned_by_evidence_audits', lazy=True),
+    )
     prediction_record = db.relationship(
         'Prediction',
         backref=db.backref('evidence_audits', lazy=True, order_by='EvidenceAudit.created_at'),
@@ -185,3 +230,37 @@ class FactCheckReview(db.Model):
         'User',
         backref=db.backref('fact_check_reviews', lazy=True),
     )
+
+
+class EvidenceAssignmentEvent(db.Model):
+    """Immutable assignment/status event for the review-case audit trail."""
+    __tablename__ = 'evidence_assignment_events'
+
+    id = db.Column(db.Integer, primary_key=True)
+    audit_id = db.Column(
+        db.Integer,
+        db.ForeignKey('evidence_audits.id', ondelete='CASCADE'),
+        nullable=False,
+    )
+    actor_id = db.Column(
+        db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True
+    )
+    from_assignee_id = db.Column(
+        db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True
+    )
+    to_assignee_id = db.Column(
+        db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True
+    )
+    action = db.Column(db.String(30), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    audit = db.relationship(
+        'EvidenceAudit',
+        backref=db.backref(
+            'assignment_events', lazy=True, cascade='all, delete-orphan',
+            order_by='EvidenceAssignmentEvent.created_at',
+        ),
+    )
+    actor = db.relationship('User', foreign_keys=[actor_id])
+    from_assignee = db.relationship('User', foreign_keys=[from_assignee_id])
+    to_assignee = db.relationship('User', foreign_keys=[to_assignee_id])

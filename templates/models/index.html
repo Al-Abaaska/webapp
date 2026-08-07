@@ -14,12 +14,19 @@
             <form method="POST" action="{{ url_for('models_bp.index') }}">
                 <textarea class="form-input" name="text" rows="5" style="min-height:140px;font-size:16px;line-height:1.7;resize:vertical;"
                     placeholder="Paste Somali political text here to compare across all models...">{{ text }}</textarea>
-                <button type="submit" class="btn-modern primary" style="margin-top:16px;">
+                <button type="submit" class="btn-modern primary" style="margin-top:16px;" id="compareBtn">
                     <i class="fas fa-cogs"></i> Compare All Models
                 </button>
             </form>
         </div>
     </div>
+
+    <div id="loadingOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.85);z-index:9999;display:none;justify-content:center;align-items:center;flex-direction:column;gap:16px;">
+        <div style="width:60px;height:60px;border:4px solid rgba(99,102,241,0.2);border-top:4px solid var(--primary);border-radius:50%;animation:spin 1s linear infinite;"></div>
+        <p style="color:var(--text);font-size:18px;font-weight:700;">Running all 8 models...</p>
+        <p style="color:var(--text-muted);font-size:14px;">This may take 10-30 seconds</p>
+    </div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 
     {% if results %}
 
@@ -155,6 +162,12 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+document.querySelector('form').addEventListener('submit', function() {
+    var ov = document.getElementById('loadingOverlay');
+    ov.style.display = 'flex';
+});
+</script>
 {% if results %}
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <script>

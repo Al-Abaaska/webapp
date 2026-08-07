@@ -23,6 +23,9 @@
 .fc-input-card textarea::placeholder { color:var(--text-dim); }
 .fc-input-row { display:flex; gap:12px; margin-top:16px; align-items:center; flex-wrap:wrap; }
 .fc-model-select { flex:1; min-width:240px; padding:10px 14px; border-radius:10px; border:1px solid var(--border); background:var(--select-bg); color:var(--input-color); font-size:14px; cursor:pointer; appearance:auto; }
+.fc-mode-wrap { flex:1;min-width:210px; }
+.fc-mode-label { display:block;font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px; }
+.fc-mode-wrap .fc-model-select { width:100%;min-width:0; }
 .fc-model-select:focus { outline:none; border-color:var(--primary); }
 .fc-model-select option { background:var(--select-bg); color:var(--input-color); }
 .fc-analyze-btn { padding:10px 28px; border-radius:10px; border:none; background:var(--primary, #5b5bff); color:#fff; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px; transition:all 0.2s; white-space:nowrap; }
@@ -32,6 +35,16 @@
 
 /* Result area */
 #resultArea { margin-top:24px; min-height:60px; }
+.fc-previous { margin-bottom:18px; padding:22px; border-radius:16px; border:1px solid rgba(99,102,241,.25); border-left:4px solid var(--primary); background:var(--card-bg); animation:fcFadeUp .3s ease; }
+.fc-previous.similar { border-left-color:#f59e0b; }
+.fc-previous-title { display:flex;align-items:center;gap:9px;font-size:16px;font-weight:800;color:var(--text);margin-bottom:5px; }
+.fc-previous-sub { color:var(--text-muted);font-size:13px;line-height:1.6;margin-bottom:16px; }
+.fc-previous-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px; }
+.fc-previous-field { padding:12px;border-radius:10px;background:var(--input-bg);border:1px solid var(--border); }
+.fc-previous-field small { display:block;color:var(--text-muted);font-size:10px;font-weight:800;text-transform:uppercase;margin-bottom:5px; }
+.fc-previous-field strong { color:var(--text);font-size:13px;line-height:1.4; }
+.fc-spread { margin-top:13px;padding:11px 13px;border-radius:10px;background:rgba(239,68,68,.07);color:var(--text);font-size:13px;font-weight:700; }
+.fc-previous-link { display:inline-flex;align-items:center;gap:7px;margin-top:14px;color:var(--primary);font-size:13px;font-weight:700;text-decoration:none; }
 
 /* Loading card */
 .fc-loading { text-align:center; padding:48px 24px; border-radius:16px; background:var(--card-bg, rgba(255,255,255,0.03)); border:1px solid var(--border, rgba(255,255,255,0.06)); animation:fcFadeUp 0.3s ease; }
@@ -73,6 +86,25 @@
 .fc-analysis-text { font-size:14px; color:var(--text-muted, rgba(255,255,255,0.6)); line-height:1.7; margin:0; }
 .fc-new-btn { margin-top:16px; padding:8px 16px; border-radius:8px; border:1px solid var(--border, rgba(255,255,255,0.08)); background:transparent; color:var(--text-muted, rgba(255,255,255,0.5)); font-size:12px; cursor:pointer; transition:all 0.2s; }
 .fc-new-btn:hover { border-color:var(--primary, #5b5bff); color:var(--primary, #5b5bff); }
+.fc-ensemble-summary { padding:20px 28px 26px; }
+.fc-ensemble-score { display:flex;justify-content:space-between;align-items:end;gap:12px;margin:18px 0 8px; }
+.fc-ensemble-score strong { font-size:24px;color:var(--text); }
+.fc-ensemble-score span { font-size:12px;color:var(--text-muted); }
+.fc-agreement-bar { height:10px;border-radius:999px;background:rgba(100,116,139,.16);overflow:hidden; }
+.fc-agreement-fill { height:100%;background:linear-gradient(90deg,var(--primary),#818cf8);border-radius:999px; }
+.fc-vote-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:15px 0; }
+.fc-vote-item { padding:11px;border:1px solid var(--border);border-radius:10px;background:var(--input-bg);text-align:center; }
+.fc-vote-item strong { display:block;font-size:18px;color:var(--text); }
+.fc-vote-item span { font-size:11px;color:var(--text-muted); }
+.fc-ensemble-metrics { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px; }
+.fc-ensemble-metric { padding:12px;border-radius:10px;background:var(--input-bg);border:1px solid var(--border); }
+.fc-ensemble-metric small { display:block;font-size:10px;color:var(--text-muted);font-weight:800;text-transform:uppercase;margin-bottom:4px; }
+.fc-ensemble-metric strong { color:var(--text);font-size:15px; }
+.fc-model-details { margin-top:16px;border-top:1px solid var(--border);padding-top:14px; }
+.fc-model-details summary { cursor:pointer;color:var(--primary);font-size:13px;font-weight:700; }
+.fc-model-table { width:100%;margin-top:12px;border-collapse:collapse; }
+.fc-model-table th,.fc-model-table td { padding:9px 7px;border-bottom:1px solid var(--border);text-align:left;font-size:12px; }
+.fc-tie-note { margin-top:12px;padding:11px 13px;border-radius:9px;background:rgba(245,158,11,.09);color:var(--text-muted);font-size:12px;line-height:1.5; }
 
 /* Fact-check progress */
 .fc-fc-wrap { margin-top:20px; animation:fcFadeUp 0.4s ease; }
@@ -159,11 +191,21 @@
             <form id="fcForm" onsubmit="return false;">
                 <textarea id="fcText" placeholder="Paste political news or social media content here..."></textarea>
                 <div class="fc-input-row">
-                    <select class="fc-model-select" id="fcModel">
-                        {% for m in models %}
-                        <option value="{{ m.key }}" {% if model_key==m.key %}selected{% endif %} {% if not m.available %}disabled{% endif %}>{{ m.name }}</option>
-                        {% endfor %}
-                    </select>
+                    <div class="fc-mode-wrap">
+                        <label class="fc-mode-label" for="fcMode">Prediction Mode</label>
+                        <select class="fc-model-select" id="fcMode">
+                            <option value="single">Single Model</option>
+                            <option value="ensemble">All Models - Ensemble</option>
+                        </select>
+                    </div>
+                    <div class="fc-mode-wrap" id="fcModelWrap">
+                        <label class="fc-mode-label" for="fcModel">Model</label>
+                        <select class="fc-model-select" id="fcModel">
+                            {% for m in models %}
+                            <option value="{{ m.key }}" {% if model_key==m.key %}selected{% endif %} {% if not m.available %}disabled{% endif %}>{{ m.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                     <button type="submit" class="fc-analyze-btn" id="fcAnalyzeBtn">
                         <i class="fas fa-magnifying-glass"></i> Analyze
                     </button>
@@ -181,6 +223,8 @@
     var form = document.getElementById('fcForm');
     var textEl = document.getElementById('fcText');
     var modelEl = document.getElementById('fcModel');
+    var modeEl = document.getElementById('fcMode');
+    var modelWrap = document.getElementById('fcModelWrap');
     var btn = document.getElementById('fcAnalyzeBtn');
     var area = document.getElementById('resultArea');
     var analyzing = false;
@@ -196,14 +240,20 @@
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing';
         area.innerHTML = renderLoading();
-        callPredict(text, modelEl.value);
+        callPredict(text, modelEl.value, modeEl.value);
     });
 
-    function callPredict(text, model) {
+    modeEl.addEventListener('change', function() {
+        var ensemble = modeEl.value === 'ensemble';
+        modelEl.disabled = ensemble;
+        modelWrap.style.opacity = ensemble ? '0.45' : '1';
+    });
+
+    function callPredict(text, model, mode) {
         fetch('/api/predict', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ text: text, model: model })
+            body: JSON.stringify({ text: text, model: model, mode: mode })
         })
         .then(function(r) {
             return r.json().then(function(data) {
@@ -218,6 +268,11 @@
                 return;
             }
             window._fcData = data;
+            if (data.duplicate_match === 'exact' && data.previous_claim) {
+                area.innerHTML = renderPreviousClaim(data.previous_claim);
+                resetBtn();
+                return;
+            }
             if (data.not_political) {
                 area.innerHTML = '<div class="fc-pred-card" style="border-left:4px solid #64748b;">' +
                     '<div class="fc-pred-head"><span class="fc-pred-badge" style="background:#64748b;">Not Political</span></div>' +
@@ -228,7 +283,7 @@
                 resetBtn();
                 return;
             }
-            area.innerHTML = renderPrediction(data);
+            area.innerHTML = (data.previous_claim ? renderPreviousClaim(data.previous_claim) : '') + renderPrediction(data);
             startFactCheck(data.text, data.prediction, data.model_key, data.prediction_id, data.analysis);
         })
         .catch(function(err) {
@@ -406,6 +461,34 @@
         return '<div class="fc-error"><div class="fc-error-text"><i class="fas fa-exclamation-circle"></i> ' + esc(msg) + '</div></div>';
     }
 
+    function renderPreviousClaim(previous) {
+        var exact = previous.match_type === 'exact';
+        var reviewed = !!previous.reviewed_at;
+        var title = exact
+            ? (reviewed ? 'This claim was previously checked.' : 'This exact claim was previously submitted.')
+            : 'A similar claim was previously investigated.';
+        var reviewedDate = reviewed
+            ? new Date(previous.reviewed_at).toLocaleDateString(undefined, {year:'numeric', month:'long', day:'numeric'})
+            : 'Not yet reviewed';
+        var confidence = previous.confidence === null || previous.confidence === undefined
+            ? 'Pending'
+            : esc(previous.prediction) + ' — ' + Number(previous.confidence).toFixed(1) + '%';
+        return '<div class="fc-previous ' + (exact ? '' : 'similar') + '">' +
+            '<div class="fc-previous-title"><i class="fas fa-clock-rotate-left"></i> ' + esc(title) + '</div>' +
+            '<p class="fc-previous-sub">' + (exact
+                ? 'The existing investigation is shown instead of creating a duplicate case.'
+                : 'This is not treated as the same claim. A new prediction and evidence audit will continue below' + (previous.similarity ? ' (' + Number(previous.similarity).toFixed(0) + '% similarity).' : '.')) + '</p>' +
+            '<div class="fc-previous-grid">' +
+                '<div class="fc-previous-field"><small>Previous AI prediction</small><strong>' + confidence + '</strong></div>' +
+                '<div class="fc-previous-field"><small>Fact-checker verdict</small><strong>' + esc(previous.fact_checker_verdict) + '</strong></div>' +
+                '<div class="fc-previous-field"><small>Reviewed</small><strong>' + esc(reviewedDate) + '</strong></div>' +
+                '<div class="fc-previous-field"><small>Evidence sources</small><strong>' + Number(previous.evidence_sources || 0) + '</strong></div>' +
+            '</div>' +
+            '<div class="fc-spread"><i class="fas fa-tower-broadcast"></i> Claim Spread Activity: submitted ' + Number(previous.submission_count || 1) + ' time' + (Number(previous.submission_count || 1) === 1 ? '' : 's') + '.</div>' +
+            (previous.investigation_url ? '<a class="fc-previous-link" href="' + esc(previous.investigation_url) + '">View Previous Investigation <i class="fas fa-arrow-right"></i></a>' : '') +
+            '</div>';
+    }
+
     function renderConfidenceSignal(prediction, confidence) {
         var cssClass = 'uncertain';
         var icon = 'fa-circle-question';
@@ -431,6 +514,7 @@
     }
 
     function renderPrediction(d) {
+        if (d.ensemble) return renderEnsemblePrediction(d);
         var pred = d.prediction.toLowerCase();
         var conf = d.confidence.toFixed(1);
         return '<div class="fc-pred-card">' +
@@ -451,6 +535,40 @@
             '<div class="fc-analysis-title"><i class="fas fa-robot"></i> AI Analysis</div>' +
             '<p class="fc-analysis-text">' + esc(d.analysis) + '</p>' +
             '</div>' +
+            '</div></div>';
+    }
+
+    function renderEnsemblePrediction(d) {
+        var ensemble = d.ensemble;
+        var pred = d.prediction.toLowerCase();
+        var votes = ensemble.vote_counts || {};
+        var rows = (ensemble.models || []).map(function(item) {
+            return '<tr><td><strong>' + esc(item.model) + '</strong></td>' +
+                '<td><span class="fc-conf-label ' + esc(item.prediction.toLowerCase()) + '">' + esc(item.prediction) + '</span></td>' +
+                '<td>' + Number(item.confidence).toFixed(1) + '%</td></tr>';
+        }).join('');
+        return '<div class="fc-pred-card">' +
+            '<div class="fc-pred-head"><span class="fc-pred-badge ' + pred + '">' +
+                '<i class="fas fa-people-group"></i> Final Ensemble Prediction: ' + esc(d.prediction) + '</span>' +
+                '<span class="fc-pred-model">All Models - Ensemble</span></div>' +
+            '<div class="fc-ensemble-summary">' +
+                '<div class="fc-ensemble-score"><strong>' + ensemble.winning_count + ' / ' + ensemble.total_models + ' models agree</strong><span>' + Number(ensemble.agreement).toFixed(1) + '% agreement</span></div>' +
+                '<div class="fc-agreement-bar"><div class="fc-agreement-fill" style="width:' + Number(ensemble.agreement) + '%"></div></div>' +
+                '<div class="fc-vote-grid">' +
+                    '<div class="fc-vote-item"><strong>' + Number(votes.Reliable || 0) + '</strong><span>Reliable models</span></div>' +
+                    '<div class="fc-vote-item"><strong>' + Number(votes.Misleading || 0) + '</strong><span>Misleading models</span></div>' +
+                    '<div class="fc-vote-item"><strong>' + Number(votes.Misinformation || 0) + '</strong><span>Misinformation models</span></div>' +
+                '</div>' +
+                '<div class="fc-ensemble-metrics">' +
+                    '<div class="fc-ensemble-metric"><small>Model Agreement</small><strong>' + Number(ensemble.agreement).toFixed(1) + '%</strong></div>' +
+                    '<div class="fc-ensemble-metric"><small>Average Winning Confidence</small><strong>' + Number(ensemble.average_confidence).toFixed(1) + '%</strong></div>' +
+                '</div>' +
+                (ensemble.tie_break ? '<div class="fc-tie-note"><i class="fas fa-scale-balanced"></i> ' + esc(ensemble.tie_break) + '</div>' : '') +
+                (!ensemble.all_models_available ? '<div class="fc-tie-note"><i class="fas fa-triangle-exclamation"></i> ' + ensemble.total_models + ' of ' + ensemble.expected_models + ' models were available for this ensemble.</div>' : '') +
+                '<details class="fc-model-details"><summary>View individual model predictions</summary>' +
+                    '<div style="overflow-x:auto;"><table class="fc-model-table"><thead><tr><th>Model</th><th>Prediction</th><th>Confidence</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+                '</details>' +
+                '<div class="fc-analysis-box" style="margin-top:16px;"><div class="fc-analysis-title"><i class="fas fa-robot"></i> Ensemble Analysis</div><p class="fc-analysis-text">' + esc(d.analysis) + '</p></div>' +
             '</div></div>';
     }
 
