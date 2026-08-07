@@ -1,0 +1,49 @@
+{% extends "_base/auth_base.html" %}
+{% block title %}Register - Somali MD{% endblock %}
+
+{% block auth_content %}
+<div class="auth-card">
+    <div class="auth-logo">
+        <i class="fas fa-user-plus"></i>
+    </div>
+    <h2 class="auth-title">Create Account</h2>
+    <p class="auth-subtitle">Join the Somali Misinformation Detector</p>
+
+    <form method="POST" action="{{ url_for('auth.register') }}">
+        <div style="margin-bottom:18px;">
+            <label class="form-label" for="username">Username</label>
+            <input type="text" class="form-input" id="username" name="username"
+                   placeholder="Choose a username" required>
+        </div>
+
+        <div style="margin-bottom:18px;">
+            <label class="form-label" for="email">Email</label>
+            <input type="email" class="form-input" id="email" name="email"
+                   placeholder="Enter your email" required>
+        </div>
+
+        <div style="margin-bottom:18px;">
+            <label class="form-label" for="password">Password</label>
+            <input type="password" class="form-input" id="password" name="password"
+                   placeholder="Create a password (min 6 characters)" required>
+        </div>
+
+        <div style="margin-bottom:24px;">
+            <label class="form-label" for="confirm_password">Confirm Password</label>
+            <input type="password" class="form-input" id="confirm_password" name="confirm_password"
+                   placeholder="Confirm your password" required>
+        </div>
+
+        <button type="submit" class="btn-modern primary full">
+            <i class="fas fa-user-plus"></i> Create Account
+        </button>
+    </form>
+
+    <p style="text-align:center;margin-top:24px;font-size:13px;color:var(--text-muted);">
+        Already have an account?
+        <a href="{{ url_for('auth.login') }}" style="color:var(--primary);font-weight:600;text-decoration:none;">
+            Login here
+        </a>
+    </p>
+</div>
+{% endblock %}

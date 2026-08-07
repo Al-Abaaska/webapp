@@ -1,0 +1,602 @@
+{% extends "_base/base.html" %}
+{% block title %}Predict - Somali MD{% endblock %}
+
+{% block content %}
+<style>
+.fc-page { max-width:900px; margin:0 auto; }
+.fc-audit-note { margin-top:12px; padding:11px 14px; border:1px solid var(--border); border-radius:10px; color:var(--text-dim); font-size:12px; line-height:1.5; }
+.fc-audit-note.error { border-color:#ef4444; color:#b91c1c; background:rgba(239,68,68,.06); }
+.fc-stance { font-size:10px; font-weight:700; padding:3px 7px; border-radius:999px; text-transform:uppercase; letter-spacing:.03em; }
+.fc-stance.supports { color:#047857; background:rgba(16,185,129,.12); }
+.fc-stance.refutes { color:#b91c1c; background:rgba(239,68,68,.12); }
+.fc-stance.repeats { color:#9a6700; background:rgba(245,158,11,.14); }
+.fc-stance.unclear { color:#475569; background:rgba(100,116,139,.12); }
+.fc-hero { margin-bottom:32px; }
+.fc-hero h1 { font-size:28px; font-weight:800; color:var(--text); margin-bottom:6px; }
+.fc-hero p { color:var(--text-muted); font-size:15px; line-height:1.6; }
+
+/* Input card */
+.fc-input-card { border-radius:16px; background:var(--card-bg, rgba(255,255,255,0.03)); border:1px solid var(--border, rgba(255,255,255,0.06)); }
+.fc-input-body { padding:24px; }
+.fc-input-card textarea { width:100%; min-height:140px; font-size:15px; line-height:1.7; resize:vertical; padding:16px; border-radius:12px; border:1px solid var(--border); background:var(--input-bg); color:var(--input-color); font-family:inherit; }
+.fc-input-card textarea:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(91,95,255,0.15); }
+.fc-input-card textarea::placeholder { color:var(--text-dim); }
+.fc-input-row { display:flex; gap:12px; margin-top:16px; align-items:center; flex-wrap:wrap; }
+.fc-model-select { flex:1; min-width:240px; padding:10px 14px; border-radius:10px; border:1px solid var(--border); background:var(--select-bg); color:var(--input-color); font-size:14px; cursor:pointer; appearance:auto; }
+.fc-model-select:focus { outline:none; border-color:var(--primary); }
+.fc-model-select option { background:var(--select-bg); color:var(--input-color); }
+.fc-analyze-btn { padding:10px 28px; border-radius:10px; border:none; background:var(--primary, #5b5bff); color:#fff; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px; transition:all 0.2s; white-space:nowrap; }
+.fc-analyze-btn:hover { background:var(--primary-dark, #4a4ef0); transform:translateY(-1px); }
+.fc-analyze-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+.fc-analyze-btn i { font-size:13px; }
+
+/* Result area */
+#resultArea { margin-top:24px; min-height:60px; }
+
+/* Loading card */
+.fc-loading { text-align:center; padding:48px 24px; border-radius:16px; background:var(--card-bg, rgba(255,255,255,0.03)); border:1px solid var(--border, rgba(255,255,255,0.06)); animation:fcFadeUp 0.3s ease; }
+@keyframes fcFadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+.fc-loading-ring { width:56px; height:56px; border-radius:50%; border:3px solid rgba(91,95,255,0.15); border-top-color:var(--primary, #5b5bff); margin:0 auto 20px; animation:fcSpin 0.8s linear infinite; }
+@keyframes fcSpin { to { transform:rotate(360deg); } }
+.fc-loading-title { font-size:16px; font-weight:700; color:var(--text, #fff); margin-bottom:4px; }
+.fc-loading-sub { font-size:13px; color:var(--text-muted, rgba(255,255,255,0.5)); }
+
+/* Prediction card */
+.fc-pred-card { border-radius:16px; background:var(--card-bg, rgba(255,255,255,0.03)); border:1px solid var(--border, rgba(255,255,255,0.06)); overflow:hidden; animation:fcFadeUp 0.4s ease; }
+.fc-pred-head { padding:24px 28px 0; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.fc-pred-badge { font-size:14px; font-weight:700; padding:7px 18px; border-radius:10px; display:inline-flex; align-items:center; gap:7px; }
+.fc-pred-badge.reliable { background:rgba(16,185,129,0.12); color:#10b981; }
+.fc-pred-badge.misinformation { background:rgba(239,68,68,0.12); color:#ef4444; }
+.fc-pred-badge.misleading { background:rgba(245,158,11,0.12); color:#f59e0b; }
+.fc-pred-model { font-size:12px; font-weight:600; padding:4px 10px; border-radius:20px; background:rgba(99,102,241,0.08); color:var(--text-muted, rgba(255,255,255,0.5)); }
+.fc-confidence-signal { width:32px; height:32px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:16px; border:1px solid currentColor; }
+.fc-confidence-signal.strong-warning { color:#dc2626; background:rgba(220,38,38,.09); }
+.fc-confidence-signal.warning { color:#f97316; background:rgba(249,115,22,.10); }
+.fc-confidence-signal.caution { color:#d97706; background:rgba(217,119,6,.10); }
+.fc-confidence-signal.positive { color:#059669; background:rgba(5,150,105,.10); }
+.fc-confidence-signal.uncertain { color:#64748b; background:rgba(100,116,139,.10); }
+.fc-pred-body { padding:20px 28px 24px; }
+.fc-conf-row { display:flex; align-items:center; gap:14px; margin-bottom:20px; }
+.fc-conf-label { font-size:14px; font-weight:700; min-width:110px; }
+.fc-conf-label.reliable { color:#10b981; }
+.fc-conf-label.misinformation { color:#ef4444; }
+.fc-conf-label.misleading { color:#f59e0b; }
+.fc-conf-bar { flex:1; height:8px; border-radius:4px; background:rgba(255,255,255,0.06); overflow:hidden; }
+.fc-conf-fill { height:100%; border-radius:4px; transition:width 1s ease; }
+.fc-conf-fill.reliable { background:linear-gradient(90deg, #10b981, #34d399); }
+.fc-conf-fill.misinformation { background:linear-gradient(90deg, #ef4444, #f87171); }
+.fc-conf-fill.misleading { background:linear-gradient(90deg, #f59e0b, #fbbf24); }
+.fc-conf-value { font-size:14px; font-weight:800; min-width:52px; text-align:right; }
+.fc-analysis-box { background:rgba(91,95,255,0.04); border:1px solid rgba(91,95,255,0.1); border-radius:12px; padding:18px 20px; }
+.fc-analysis-title { font-size:13px; font-weight:700; color:var(--text, #fff); margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+.fc-analysis-title i { color:var(--primary-light, #818cf8); }
+.fc-analysis-text { font-size:14px; color:var(--text-muted, rgba(255,255,255,0.6)); line-height:1.7; margin:0; }
+.fc-new-btn { margin-top:16px; padding:8px 16px; border-radius:8px; border:1px solid var(--border, rgba(255,255,255,0.08)); background:transparent; color:var(--text-muted, rgba(255,255,255,0.5)); font-size:12px; cursor:pointer; transition:all 0.2s; }
+.fc-new-btn:hover { border-color:var(--primary, #5b5bff); color:var(--primary, #5b5bff); }
+
+/* Fact-check progress */
+.fc-fc-wrap { margin-top:20px; animation:fcFadeUp 0.4s ease; }
+.fc-fc-header { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+.fc-fc-spinner { width:16px; height:16px; border-radius:50%; border:2px solid rgba(91,95,255,0.2); border-top-color:var(--primary, #5b5bff); animation:fcSpin 0.8s linear infinite; flex-shrink:0; }
+.fc-fc-spinner.done { border-color:rgba(16,185,129,0.3); border-top-color:#10b981; animation:none; }
+.fc-fc-title { font-size:13px; font-weight:600; color:var(--text, #fff); flex:1; }
+.fc-fc-pct { font-size:12px; font-weight:700; color:var(--primary, #5b5bff); min-width:36px; text-align:right; }
+.fc-fc-steps { display:flex; flex-direction:column; gap:3px; }
+.fc-fc-step { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; font-size:12px; color:var(--text-dim, rgba(255,255,255,0.3)); transition:all 0.3s; }
+.fc-fc-step.running { background:rgba(91,95,255,0.06); color:var(--text, #fff); }
+.fc-fc-step.done { color:var(--text-muted, rgba(255,255,255,0.5)); }
+.fc-fc-dot { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.1); flex-shrink:0; transition:all 0.3s; }
+.fc-fc-step.running .fc-fc-dot { background:var(--primary, #5b5bff); box-shadow:0 0 8px var(--primary, #5b5bff); }
+.fc-fc-step.done .fc-fc-dot { background:#10b981; }
+.fc-fc-label { flex:1; }
+.fc-fc-count { font-size:11px; font-weight:700; padding:1px 8px; border-radius:10px; display:none; }
+.fc-fc-step.done .fc-fc-count { display:inline; background:rgba(16,185,129,0.12); color:#10b981; }
+
+/* Claim box */
+.fc-claim-card { margin-top:16px; border-radius:12px; background:var(--card-bg, rgba(255,255,255,0.03)); border:1px solid var(--border, rgba(255,255,255,0.06)); padding:18px 22px; animation:fcFadeUp 0.3s ease; }
+.fc-claim-title { font-size:13px; font-weight:700; color:var(--text, #fff); margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+.fc-claim-title i { color:var(--primary-light, #818cf8); }
+.fc-claim-text { font-size:14px; color:var(--text, #fff); line-height:1.6; margin:0; padding:12px 16px; background:rgba(0,0,0,0.15); border-radius:8px; border:1px solid rgba(255,255,255,0.04); }
+
+/* Source / result cards */
+.fc-src-card { margin-top:16px; border-radius:16px; background:var(--card-bg, rgba(255,255,255,0.03)); border:1px solid var(--border, rgba(255,255,255,0.06)); overflow:hidden; animation:fcFadeUp 0.4s ease; }
+.fc-src-head { padding:18px 22px 14px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.04); }
+.fc-src-head h5 { font-size:14px; font-weight:700; color:var(--text, #fff); margin:0; display:flex; align-items:center; gap:8px; }
+.fc-src-head h5 i { font-size:13px; }
+.fc-src-count { font-size:12px; color:var(--text-muted, rgba(255,255,255,0.5)); }
+.fc-src-list { padding:4px 22px 18px; }
+.fc-src-item { padding:14px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+.fc-src-item:last-child { border-bottom:none; }
+.fc-src-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.fc-src-info { flex:1; min-width:0; }
+.fc-src-tags { display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap:wrap; }
+.fc-src-tag { font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px; }
+.fc-src-tag.fb { background:rgba(59,130,246,0.12); color:#3b82f6; }
+.fc-src-tag.credible { background:rgba(16,185,129,0.12); color:#10b981; }
+.fc-src-tag.web { background:rgba(99,102,241,0.12); color:var(--primary, #5b5bff); }
+.fc-src-name { font-size:13px; font-weight:700; color:var(--text, #fff); }
+.fc-src-date { font-size:11px; color:var(--text-dim, rgba(255,255,255,0.3)); }
+.fc-src-snippet { font-size:12px; color:var(--text-muted, rgba(255,255,255,0.4)); line-height:1.5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0; }
+.fc-src-actions { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.fc-src-stats { display:flex; gap:8px; font-size:11px; color:var(--text-dim, rgba(255,255,255,0.3)); }
+.fc-src-visit { padding:5px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:transparent; color:var(--text-muted, rgba(255,255,255,0.5)); font-size:11px; font-weight:600; cursor:pointer; text-decoration:none; transition:all 0.2s; white-space:nowrap; }
+.fc-src-visit:hover { border-color:var(--primary, #5b5bff); color:var(--primary, #5b5bff); }
+
+/* Similar content score */
+.fc-sim-score { text-align:center; min-width:48px; }
+.fc-sim-score-inline { display:inline-flex; align-items:center; gap:4px; margin-left:8px; font-size:11px; color:var(--text-dim, rgba(255,255,255,0.3)); }
+.fc-sim-pct { font-size:15px; font-weight:800; }
+.fc-sim-pct.high { color:#10b981; }
+.fc-sim-pct.mid { color:#f59e0b; }
+.fc-sim-pct.low { color:var(--text-dim, rgba(255,255,255,0.3)); }
+.fc-sim-label { font-size:9px; color:var(--text-dim, rgba(255,255,255,0.3)); text-transform:uppercase; letter-spacing:0.5px; }
+.fc-sim-reason { font-size:11px; color:var(--text-dim, rgba(255,255,255,0.3)); margin:6px 0 0; font-style:italic; line-height:1.5; }
+
+/* Empty state */
+.fc-empty { text-align:center; padding:40px 24px; border-radius:16px; background:var(--card-bg, rgba(255,255,255,0.03)); border:1px solid var(--border, rgba(255,255,255,0.06)); animation:fcFadeUp 0.3s ease; }
+.fc-empty i { font-size:32px; color:var(--text-dim, rgba(255,255,255,0.2)); margin-bottom:12px; }
+.fc-empty h3 { font-size:15px; font-weight:700; color:var(--text, #fff); margin-bottom:4px; }
+.fc-empty p { font-size:13px; color:var(--text-muted, rgba(255,255,255,0.5)); margin:0; }
+
+/* Error state */
+.fc-error { padding:16px 20px; border-radius:12px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.15); animation:fcFadeUp 0.3s ease; }
+.fc-error-text { font-size:13px; color:#ef4444; font-weight:600; }
+
+/* PDF export */
+.fc-export-btn { padding:5px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:transparent; color:var(--text-muted, rgba(255,255,255,0.5)); font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s; }
+.fc-export-btn:hover { border-color:var(--primary, #5b5bff); color:var(--primary, #5b5bff); }
+</style>
+
+<div class="fc-page">
+    <div class="fc-hero">
+        <h1>AI Fact-Checker</h1>
+        <p>Paste Somali political text. Our AI will classify it and find similar public content for verification.</p>
+    </div>
+
+    <!-- Input Card -->
+    <div class="fc-input-card">
+        <div class="fc-input-body">
+            <form id="fcForm" onsubmit="return false;">
+                <textarea id="fcText" placeholder="Paste political news or social media content here..."></textarea>
+                <div class="fc-input-row">
+                    <select class="fc-model-select" id="fcModel">
+                        {% for m in models %}
+                        <option value="{{ m.key }}" {% if model_key==m.key %}selected{% endif %} {% if not m.available %}disabled{% endif %}>{{ m.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="fc-analyze-btn" id="fcAnalyzeBtn">
+                        <i class="fas fa-magnifying-glass"></i> Analyze
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Result Area (everything happens here) -->
+    <div id="resultArea"></div>
+</div>
+
+<script>
+(function() {
+    var form = document.getElementById('fcForm');
+    var textEl = document.getElementById('fcText');
+    var modelEl = document.getElementById('fcModel');
+    var btn = document.getElementById('fcAnalyzeBtn');
+    var area = document.getElementById('resultArea');
+    var analyzing = false;
+
+    // Store data for PDF export
+    window._fcData = {};
+
+    form.addEventListener('submit', function() {
+        if (analyzing) return;
+        var text = textEl.value.trim();
+        if (!text) { textEl.focus(); return; }
+        analyzing = true;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing';
+        area.innerHTML = renderLoading();
+        callPredict(text, modelEl.value);
+    });
+
+    function callPredict(text, model) {
+        fetch('/api/predict', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ text: text, model: model })
+        })
+        .then(function(r) {
+            return r.json().then(function(data) {
+                if (!r.ok) throw new Error(data.error || 'Prediction request failed.');
+                return data;
+            });
+        })
+        .then(function(data) {
+            if (data.error) {
+                area.innerHTML = renderError(data.error);
+                resetBtn();
+                return;
+            }
+            window._fcData = data;
+            if (data.not_political) {
+                area.innerHTML = '<div class="fc-pred-card" style="border-left:4px solid #64748b;">' +
+                    '<div class="fc-pred-head"><span class="fc-pred-badge" style="background:#64748b;">Not Political</span></div>' +
+                    '<div class="fc-analysis" style="margin-top:12px;">' +
+                    '<div class="fc-analysis-title"><i class="fas fa-info-circle" style="color:#64748b"></i> Not Related to Politics</div>' +
+                    '<p class="fc-analysis-text">' + esc(data.analysis) + '</p>' +
+                    '</div></div>';
+                resetBtn();
+                return;
+            }
+            area.innerHTML = renderPrediction(data);
+            startFactCheck(data.text, data.prediction, data.model_key, data.prediction_id, data.analysis);
+        })
+        .catch(function(err) {
+            area.innerHTML = renderError(err.message || 'Network error. Please try again.');
+            resetBtn();
+        });
+    }
+
+    function startFactCheck(text, prediction, modelKey, predictionId, analysis) {
+        window._fcFailed = false;
+        var fcHtml = '<div class="fc-fc-wrap" id="fcWrap">' +
+            '<div class="fc-fc-header">' +
+            '<div class="fc-fc-spinner" id="fcSpinner"></div>' +
+            '<span class="fc-fc-title" id="fcTitle">Running fact-check...</span>' +
+            '<span class="fc-fc-pct" id="fcPct">0%</span>' +
+            '</div>' +
+            '<div class="fc-fc-steps" id="fcSteps">' +
+            fcStepHtml('fcS1', 'Extracting main claim') +
+            fcStepHtml('fcS2', 'Generating search queries') +
+            fcStepHtml('fcS3', 'Searching sources') +
+            fcStepHtml('fcS4', 'Searching Facebook') +
+            fcStepHtml('fcS4b', 'Searching YouTube') +
+            fcStepHtml('fcS5', 'Verifying results') +
+            '</div></div>' +
+            '<div id="fcClaimBox"></div>' +
+            '<div id="fcReported"></div>' +
+            '<div id="fcSimilar"></div>' +
+            '<div id="fcAuditStatus"></div>';
+        area.insertAdjacentHTML('beforeend', fcHtml);
+
+        fetch('/api/fact-check', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ text: text, prediction: prediction, model_key: modelKey, prediction_id: predictionId, analysis: analysis })
+        })
+        .then(function(response) {
+            if (!response.ok || !response.body) {
+                return response.json().catch(function() { return {}; }).then(function(data) {
+                    throw new Error(data.error || 'Evidence search request failed.');
+                });
+            }
+            var reader = response.body.getReader();
+            var decoder = new TextDecoder();
+            var buffer = '';
+
+            function read() {
+                reader.read().then(function(result) {
+                    if (result.done) { finishFc(window._fcFailed); return; }
+                    buffer += decoder.decode(result.value, { stream: true });
+                    var lines = buffer.split('\n');
+                    buffer = lines.pop();
+                    var evType = '', dataLines = [];
+                    for (var i = 0; i < lines.length; i++) {
+                        var line = lines[i];
+                        if (line.indexOf('event: ') === 0) evType = line.substring(7);
+                        else if (line.indexOf('data: ') === 0) dataLines.push(line.substring(6));
+                        else if (line === '' && evType && dataLines.length > 0) {
+                            try { handleSSE(evType, JSON.parse(dataLines.join(''))); } catch(e) {}
+                            evType = ''; dataLines = [];
+                        }
+                    }
+                    read();
+                });
+            }
+            read();
+        })
+        .catch(function(error) {
+            showAuditStatus(error.message || 'Evidence search failed.', true);
+            finishFc(true);
+        });
+    }
+
+    function handleSSE(ev, d) {
+        if (ev === 'step') {
+            var stepEl = getStepEl(d.name);
+            if (!stepEl) return;
+            if (d.status === 'running') {
+                stepEl.className = 'fc-fc-step running';
+            } else if (d.status === 'done') {
+                stepEl.className = 'fc-fc-step done';
+                var cnt = stepEl.querySelector('.fc-fc-count');
+                if (cnt) cnt.textContent = d.count > 0 ? d.count + ' found' : 'done';
+            }
+            updateFcPct();
+        }
+        else if (ev === 'claim' && d.claim) {
+            document.getElementById('fcClaimBox').innerHTML =
+                '<div class="fc-claim-card">' +
+                '<div class="fc-claim-title"><i class="fas fa-bullseye"></i> Main Claim Extracted</div>' +
+                '<p class="fc-claim-text">' + esc(d.claim) + '</p></div>';
+            window._fcData.main_claim = d.claim;
+        }
+        else if (ev === 'queries' && d.queries) {
+            window._fcData.search_queries = d.queries;
+        }
+        else if (ev === 'log' && d.message) {
+            showAuditStatus(d.message, false);
+        }
+        else if (ev === 'evidence' && d.evidence) {
+            document.getElementById('fcSimilar').innerHTML = renderEvidence(d.evidence, d.provider_counts || {});
+            window._fcData.similar_content = d.evidence;
+            window._fcData.audit_id = d.audit_id;
+            showAuditStatus(d.notice || 'Evidence audit saved.', false);
+        }
+        else if (ev === 'empty') {
+            window._fcData.audit_id = d.audit_id;
+            document.getElementById('fcSimilar').innerHTML =
+                '<div class="fc-audit-note"><i class="fas fa-search"></i> ' + esc(d.message) + '</div>';
+        }
+        else if (ev === 'error') {
+            window._fcFailed = true;
+            window._fcData.audit_id = d.audit_id;
+            showAuditStatus(d.message || 'Evidence search failed.', true);
+            finishFc(true);
+        }
+        else if (ev === 'reported_by' && d.reported_by && d.reported_by.length > 0) {
+            document.getElementById('fcReported').innerHTML = renderSimilarContent(d.reported_by, window._fcData.prediction);
+            window._fcData.reported_by = d.reported_by;
+        }
+        else if (ev === 'similar_content' && d.similar_content && d.similar_content.length > 0) {
+            document.getElementById('fcSimilar').innerHTML = renderSimilarContent(d.similar_content, window._fcData.prediction);
+            window._fcData.similar_content = d.similar_content;
+        }
+    }
+
+    function getStepEl(name) {
+        var map = { extract_claim:'fcS1', generate_queries:'fcS2', search_sources:'fcS3', search_web:'fcS3', search_facebook:'fcS4', search_youtube:'fcS4b', verify_sources:'fcS5', semantic_match:'fcS5' };
+        return document.getElementById(map[name]);
+    }
+
+    function updateFcPct() {
+        var steps = document.querySelectorAll('#fcSteps .fc-fc-step');
+        var done = 0, running = false;
+        steps.forEach(function(s) { if (s.classList.contains('done')) done++; if (s.classList.contains('running')) running = true; });
+        var pct = Math.round((done / steps.length) * 100);
+        if (running) pct = Math.min(pct + 10, 95);
+        var el = document.getElementById('fcPct');
+        if (el) el.textContent = pct + '%';
+    }
+
+    function finishFc(failed) {
+        var sp = document.getElementById('fcSpinner');
+        if (sp) { sp.classList.add('done'); sp.style.animation = 'none'; }
+        var t = document.getElementById('fcTitle');
+        if (t) t.textContent = failed ? 'Evidence search incomplete' : 'Evidence audit complete';
+        var p = document.getElementById('fcPct');
+        if (p) p.textContent = '100%';
+        steps = document.querySelectorAll('#fcSteps .fc-fc-step.running');
+        steps.forEach(function(s) { s.className = 'fc-fc-step done'; });
+        resetBtn();
+    }
+
+    function showAuditStatus(message, isError) {
+        var target = document.getElementById('fcAuditStatus');
+        if (!target || !message) return;
+        target.innerHTML = '<div class="fc-audit-note' + (isError ? ' error' : '') + '">' +
+            '<i class="fas ' + (isError ? 'fa-exclamation-circle' : 'fa-info-circle') + '"></i> ' +
+            esc(message) + '</div>';
+    }
+
+    function resetBtn() {
+        analyzing = false;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-magnifying-glass"></i> Analyze';
+    }
+
+    /* ---- Render functions ---- */
+    function renderLoading() {
+        return '<div class="fc-loading"><div class="fc-loading-ring"></div>' +
+            '<div class="fc-loading-title">Classifying text...</div>' +
+            '<div class="fc-loading-sub">Running ML prediction</div></div>';
+    }
+
+    function renderError(msg) {
+        return '<div class="fc-error"><div class="fc-error-text"><i class="fas fa-exclamation-circle"></i> ' + esc(msg) + '</div></div>';
+    }
+
+    function renderConfidenceSignal(prediction, confidence) {
+        var cssClass = 'uncertain';
+        var icon = 'fa-circle-question';
+        var title = 'Human review recommended';
+        if (confidence >= 60 && prediction === 'misinformation') {
+            cssClass = confidence >= 90 ? 'strong-warning' : (confidence >= 75 ? 'warning' : 'caution');
+            icon = 'fa-triangle-exclamation';
+            title = confidence >= 90 ? 'Very strong warning indication' : 'Warning indication';
+        } else if (confidence >= 60 && prediction === 'misleading') {
+            cssClass = confidence >= 80 ? 'warning' : 'caution';
+            icon = 'fa-circle-exclamation';
+            title = 'Context requires careful review';
+        } else if (confidence >= 80 && prediction === 'reliable') {
+            cssClass = 'positive';
+            icon = 'fa-shield-circle-check';
+            title = 'Strong reliability indication';
+        } else if (confidence >= 60 && prediction === 'reliable') {
+            cssClass = 'uncertain';
+            icon = 'fa-circle-info';
+            title = 'Moderate confidence; review the evidence';
+        }
+        return '<span class="fc-confidence-signal ' + cssClass + '" title="' + title + '" aria-label="' + title + '"><i class="fas ' + icon + '"></i></span>';
+    }
+
+    function renderPrediction(d) {
+        var pred = d.prediction.toLowerCase();
+        var conf = d.confidence.toFixed(1);
+        return '<div class="fc-pred-card">' +
+            '<div class="fc-pred-head">' +
+            '<span class="fc-pred-badge ' + pred + '">' +
+            (pred === 'reliable' ? '<i class="fas fa-check-circle"></i> ' : pred === 'misinformation' ? '<i class="fas fa-times-circle"></i> ' : '<i class="fas fa-exclamation-triangle"></i> ') +
+            d.prediction + '</span>' +
+            renderConfidenceSignal(pred, Number(d.confidence)) +
+            '<span class="fc-pred-model">' + esc(d.model) + '</span>' +
+            '</div>' +
+            '<div class="fc-pred-body">' +
+            '<div class="fc-conf-row">' +
+            '<span class="fc-conf-label ' + pred + '">' + d.prediction + '</span>' +
+            '<div class="fc-conf-bar"><div class="fc-conf-fill ' + pred + '" style="width:' + conf + '%"></div></div>' +
+            '<span class="fc-conf-value">' + conf + '%</span>' +
+            '</div>' +
+            '<div class="fc-analysis-box">' +
+            '<div class="fc-analysis-title"><i class="fas fa-robot"></i> AI Analysis</div>' +
+            '<p class="fc-analysis-text">' + esc(d.analysis) + '</p>' +
+            '</div>' +
+            '</div></div>';
+    }
+
+    function renderReportedBy(items) {
+        var h = '<div class="fc-src-card"><div class="fc-src-head">' +
+            '<h5><i class="fas fa-check-circle" style="color:#10b981"></i> Also Reported By</h5>' +
+            '<span class="fc-src-count">' + items.length + ' source' + (items.length !== 1 ? 's' : '') + '</span></div>' +
+            '<div class="fc-src-list">';
+        items.forEach(function(s) {
+            var sc = s.similarity_score || 0;
+            var scClass = sc >= 80 ? 'high' : sc >= 60 ? 'mid' : 'low';
+            h += '<div class="fc-src-item"><div class="fc-src-top"><div class="fc-src-info"><div class="fc-src-tags">';
+            if (s.is_facebook) {
+                h += '<span class="fc-src-tag fb"><i class="fab fa-facebook"></i> Facebook</span>' +
+                    '<span class="fc-src-name">' + esc(s.author || 'User') + '</span>';
+            } else {
+                h += '<span class="fc-src-tag credible"><i class="fas fa-check"></i> Verified</span>' +
+                    '<span class="fc-src-name">' + esc(s.source || 'Source') + '</span>';
+            }
+            if (sc > 0) {
+                h += '<span class="fc-sim-score-inline"><span class="fc-sim-pct ' + scClass + '">' + sc + '%</span> Match</span>';
+            }
+            h += '</div>';
+            var snippetText = s.snippet || s.title || '';
+            if (snippetText) h += '<p class="fc-src-snippet">' + esc(snippetText.substring(0, 160)) + (snippetText.length > 160 ? '...' : '') + '</p>';
+            if (s.explanation) h += '<p class="fc-sim-reason"><i class="fas fa-info-circle"></i> ' + esc(s.explanation) + '</p>';
+            h += '</div><div class="fc-src-actions">';
+            if (s.is_facebook) {
+                h += '<div class="fc-src-stats"><span><i class="fas fa-heart"></i> ' + (s.likes||0) + '</span><span><i class="fas fa-comment"></i> ' + (s.comments||0) + '</span></div>';
+            }
+            h += '<a href="' + esc(s.url) + '" target="_blank" rel="noopener" class="fc-src-visit"><i class="fas fa-external-link"></i> Visit</a>' +
+                '</div></div></div>';
+        });
+        h += '</div></div>';
+        return h;
+    }
+
+    function renderEvidence(items, providerCounts) {
+        var predictedLabel = String((window._fcData || {}).prediction || '').toLowerCase();
+        var questionedClaim = predictedLabel === 'misinformation' || predictedLabel === 'misleading';
+        var providers = Object.keys(providerCounts).map(function(name) {
+            return esc(name) + ': ' + providerCounts[name];
+        }).join(' &middot; ');
+        var h = '<div class="fc-src-card"><div class="fc-src-head">' +
+            '<h5><i class="fas fa-scale-balanced" style="color:var(--primary-light)"></i> Source Evidence Audit</h5>' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+            '<span class="fc-src-count">' + items.length + ' result' + (items.length !== 1 ? 's' : '') + '</span>' +
+            '<button onclick="exportReport()" class="fc-export-btn"><i class="fas fa-file-pdf"></i> PDF</button>' +
+            '</div></div>' +
+            (providers ? '<div class="fc-audit-note"><strong>Providers:</strong> ' + providers + '</div>' : '') +
+            '<div class="fc-src-list">';
+        items.forEach(function(it) {
+            var score = Number(it.similarity_score || 0);
+            var scoreClass = score >= 80 ? 'high' : score >= 50 ? 'mid' : 'low';
+            var stance = it.stance || 'Unclear';
+            if (questionedClaim && stance === 'Supports') stance = 'Repeats';
+            var stanceClass = stance.toLowerCase();
+            var kind = it.evidence_kind === 'trusted' ? (it.credibility || 'Trusted source') :
+                it.evidence_kind === 'social' ? 'Social spread' : 'General web';
+            h += '<div class="fc-src-item"><div class="fc-src-top"><div class="fc-src-info">' +
+                '<div class="fc-src-tags">' +
+                '<span class="fc-src-tag web"><i class="fas fa-globe"></i> ' + esc(it.platform || 'Web') + '</span>' +
+                '<span class="fc-stance ' + esc(stanceClass) + '">' + esc(stance) + '</span>' +
+                '<span class="fc-src-name">' + esc(kind) + ' &middot; ' + esc(it.source || 'Source') + '</span>' +
+                '</div>';
+            if (it.title) h += '<p class="fc-src-snippet">' + esc(it.title.substring(0,180)) + '</p>';
+            if (it.snippet) h += '<p class="fc-sim-reason">' + esc(it.snippet.substring(0,220)) + '</p>';
+            if (it.explanation) h += '<p class="fc-sim-reason"><i class="fas fa-info-circle"></i> ' + esc(it.explanation) + '</p>';
+            h += '</div><div class="fc-src-actions">' +
+                '<div class="fc-sim-score"><div class="fc-sim-pct ' + scoreClass + '">' + score + '%</div><div class="fc-sim-label">Match</div></div>' +
+                '<a href="' + esc(it.url) + '" target="_blank" rel="noopener" class="fc-src-visit"><i class="fas fa-external-link"></i> Open</a>' +
+                '</div></div></div>';
+        });
+        var evidenceNote = questionedClaim
+            ? 'A related result may refute or repeat the claim. Review the linked source before making a final judgment.'
+            : 'A related result may support, refute, or repeat the claim. Review the linked source before making a final judgment.';
+        evidenceNote += ' Official institutional sources confirm what that institution announced; they are not independent proof of every broader claim.';
+        h += '</div><div class="fc-audit-note">' + evidenceNote + '</div></div>';
+        return h;
+    }
+
+    function renderSimilarContent(items, prediction) {
+        var isReliable = (prediction || '').toLowerCase() === 'reliable';
+        var titleText = isReliable ? 'Corroborating Reports' : 'Similar Content Spreading This Claim';
+        var h = '<div class="fc-src-card"><div class="fc-src-head">' +
+            '<h5><i class="fas fa-globe" style="color:var(--primary-light)"></i> ' + titleText + '</h5>' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+            '<span class="fc-src-count">' + items.length + ' result' + (items.length !== 1 ? 's' : '') + '</span>' +
+            '<button onclick="exportReport()" class="fc-export-btn"><i class="fas fa-file-pdf"></i> PDF</button>' +
+            '</div></div><div class="fc-src-list">';
+        items.forEach(function(it) {
+            var sc = it.similarity_score || 0;
+            var scClass = sc >= 80 ? 'high' : sc >= 50 ? 'mid' : 'low';
+            var platColor = it.platform === 'Facebook' ? 'fb' : it.platform === 'YouTube' ? 'fb' : 'web';
+            h += '<div class="fc-src-item"><div class="fc-src-top"><div class="fc-src-info"><div class="fc-src-tags">' +
+                '<span class="fc-src-tag ' + platColor + '"><i class="fab fa-' + esc((it.platform||'globe').toLowerCase().replace('/','')) + '"></i> ' + esc(it.platform || 'Web') + '</span>' +
+                '<span class="fc-src-name">' + esc(it.source || '') + '</span>';
+            if (it.date) h += '<span class="fc-src-date">' + esc(String(it.date).substring(0,10)) + '</span>';
+            h += '</div>';
+            if (it.title) h += '<p class="fc-src-snippet">' + esc(it.title.substring(0,140)) + '</p>';
+            if (it.explanation) h += '<p class="fc-sim-reason"><i class="fas fa-info-circle"></i> ' + esc(it.explanation) + '</p>';
+            h += '</div><div class="fc-src-actions">';
+            h += '<div class="fc-sim-score"><div class="fc-sim-pct ' + scClass + '">' + sc + '%</div><div class="fc-sim-label">Match</div></div>';
+            h += '<a href="' + esc(it.url) + '" target="_blank" rel="noopener" class="fc-src-visit"><i class="fas fa-external-link"></i> Open</a>' +
+                '</div></div></div>';
+        });
+        h += '</div></div>';
+        return h;
+    }
+
+    function fcStepHtml(id, label) {
+        return '<div class="fc-fc-step" id="' + id + '"><div class="fc-fc-dot"></div><span class="fc-fc-label">' + label + '</span><span class="fc-fc-count"></span></div>';
+    }
+
+    function esc(s) {
+        if (!s) return '';
+        var d = document.createElement('div');
+        d.appendChild(document.createTextNode(String(s)));
+        return d.innerHTML;
+    }
+})();
+</script>
+
+<script>
+function exportReport() {
+    var d = window._fcData || {};
+    fetch('/export-report', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            prediction: d.prediction || '',
+            confidence: d.confidence || 0,
+            main_claim: d.main_claim || null,
+            search_queries: d.search_queries || [],
+            similar_content: d.similar_content || []
+        })
+    })
+    .then(function(r) { if (!r.ok) throw new Error('Export failed'); return r.blob(); })
+    .then(function(blob) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = 'investigation_report.pdf';
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+    })
+    .catch(function(e) { alert('Failed to export: ' + e.message); });
+}
+</script>
+{% endblock %}

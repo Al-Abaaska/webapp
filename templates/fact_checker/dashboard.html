@@ -1,0 +1,242 @@
+{% extends "_base/base.html" %}
+{% block title %}Fact-Checker Dashboard - Somali MD{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div>
+        <h1 style="font-size:28px;font-weight:800;color:var(--text);margin-bottom:6px;">Fact-Checker Dashboard</h1>
+        <p style="color:var(--text-muted);font-size:15px;">Which case needs your attention next?</p>
+    </div>
+    {% if next_case %}
+    <a href="{{ url_for('fact_checker.review_detail', audit_id=next_case.id) }}" class="btn-modern primary" style="padding:12px 24px;font-size:14px;font-weight:700;">
+        <i class="fas fa-arrow-right"></i> Review Next Case
+    </a>
+    {% endif %}
+</div>
+
+<!-- ═══ STAT CARDS ═══ -->
+<div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:24px;">
+    <div class="stat-card">
+        <div class="stat-icon yellow"><i class="fas fa-clock"></i></div>
+        <div class="stat-value">{{ pending_count }}</div>
+        <div class="stat-label">Pending Reviews</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon red"><i class="fas fa-triangle-exclamation"></i></div>
+        <div class="stat-value">{{ high_risk_count }}</div>
+        <div class="stat-label">High-Risk Cases</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon indigo"><i class="fas fa-magnifying-glass"></i></div>
+        <div class="stat-value">{{ under_review_count }}</div>
+        <div class="stat-label">Under Review</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="fas fa-circle-check"></i></div>
+        <div class="stat-value">{{ reviewed_count }}</div>
+        <div class="stat-label">Completed Reviews</div>
+    </div>
+</div>
+
+<!-- ═══ MAIN GRID: Priority Queue + Sidebar ═══ -->
+<div style="display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start;">
+
+<!-- PRIORITY QUEUE -->
+<div>
+    <div class="card-modern" style="margin-bottom:20px;">
+        <div class="card-header-modern" style="display:flex;align-items:center;justify-content:space-between;">
+            <h5><i class="fas fa-list-check" style="color:var(--primary);"></i> Priority Review Queue</h5>
+            <a href="{{ url_for('fact_checker.index', status='pending') }}" style="font-size:12px;color:var(--primary);font-weight:600;text-decoration:none;">View all pending <i class="fas fa-arrow-right"></i></a>
+        </div>
+        {% if priority_data %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Audit</th>
+                        <th>AI Prediction</th>
+                        <th>Confidence</th>
+                        <th>Risk</th>
+                        <th>Sources</th>
+                        <th>Alerts</th>
+                        <th>Date</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for item in priority_data %}
+                <tr>
+                    <td style="font-weight:700;">#{{ item.audit.id }}</td>
+                    <td><span class="badge-modern {{ item.audit.predicted_label|lower }}">{{ item.audit.predicted_label }}</span></td>
+                    <td style="font-weight:600;">{{ "%.1f"|format(item.confidence) }}%</td>
+                    <td>
+                        {% if item.risk_level == 'high' %}
+                        <span style="color:var(--danger);font-weight:700;font-size:12px;"><i class="fas fa-circle" style="font-size:8px;"></i> High</span>
+                        {% elif item.risk_level == 'medium' %}
+                        <span style="color:var(--warning);font-weight:700;font-size:12px;"><i class="fas fa-circle" style="font-size:8px;"></i> Medium</span>
+                        {% else %}
+                        <span style="color:var(--success);font-weight:700;font-size:12px;"><i class="fas fa-circle" style="font-size:8px;"></i> Low</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span style="font-size:12px;">{{ item.source_count }}</span>
+                        {% if item.trusted_count > 0 %}<span style="font-size:10px;color:var(--success);margin-left:3px;">({{ item.trusted_count }} trusted)</span>{% endif %}
+                    </td>
+                    <td>
+                        {% for alert in item.alerts %}
+                            {% if alert == 'no_evidence' %}<span style="color:var(--danger);font-size:10px;font-weight:700;" title="No evidence sources"><i class="fas fa-triangle-exclamation"></i></span>
+                            {% elif alert == 'no_trusted' %}<span style="color:var(--warning);font-size:10px;font-weight:700;" title="No trusted source"><i class="fas fa-shield-halved"></i></span>
+                            {% elif alert == 'conflicting' %}<span style="color:var(--warning);font-size:10px;font-weight:700;" title="Conflicting sources"><i class="fas fa-code-branch"></i></span>
+                            {% elif alert == 'only_repeats' %}<span style="color:var(--text-muted);font-size:10px;font-weight:700;" title="Only repeated, not verified"><i class="fas fa-rotate"></i></span>
+                            {% elif alert == 'weak_match' %}<span style="color:var(--text-muted);font-size:10px;font-weight:700;" title="Weak similarity match"><i class="fas fa-link-slash"></i></span>
+                            {% endif %}
+                        {% endfor %}
+                        {% if not item.alerts %}<span style="color:var(--success);font-size:10px;"><i class="fas fa-check"></i></span>{% endif %}
+                    </td>
+                    <td style="white-space:nowrap;color:var(--text-muted);font-size:12px;">{{ item.audit.created_at.strftime('%m-%d %H:%M') }}</td>
+                    <td>
+                        <a class="btn-modern primary" style="padding:6px 12px;font-size:11px;font-weight:700;" href="{{ url_for('fact_checker.review_detail', audit_id=item.audit.id) }}">
+                            <i class="fas fa-arrow-right"></i> Review
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:40px;">
+            <i class="fas fa-clipboard-check" style="font-size:36px;color:var(--success);"></i>
+            <h3>All caught up!</h3>
+            <p>No pending cases to review right now.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- EVIDENCE ALERTS -->
+    {% if evidence_alerts %}
+    <div class="card-modern">
+        <div class="card-header-modern">
+            <h5><i class="fas fa-bell" style="color:var(--warning);"></i> Evidence Alerts</h5>
+        </div>
+        <div class="card-body-modern" style="padding:0;">
+            {% for alert in evidence_alerts %}
+            <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+                {% if alert.alert_type == 'critical' %}
+                <span style="width:8px;height:8px;border-radius:50%;background:var(--danger);flex-shrink:0;"></span>
+                {% elif alert.alert_type == 'warning' %}
+                <span style="width:8px;height:8px;border-radius:50%;background:var(--warning);flex-shrink:0;"></span>
+                {% else %}
+                <span style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);flex-shrink:0;"></span>
+                {% endif %}
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+                        <span style="font-weight:700;color:var(--text);font-size:13px;">#{{ alert.audit.id }}</span>
+                        <span class="badge-modern {{ alert.audit.predicted_label|lower }}" style="font-size:10px;">{{ alert.audit.predicted_label }}</span>
+                        <span style="font-size:11px;color:var(--text-muted);">{{ alert.source_count }} source{{ 's' if alert.source_count != 1 else '' }}</span>
+                    </div>
+                    <p style="font-size:12px;color:var(--text-dim);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ alert.alert_msg }}</p>
+                </div>
+                <a href="{{ url_for('fact_checker.review_detail', audit_id=alert.audit.id) }}" style="font-size:11px;color:var(--primary);font-weight:600;white-space:nowrap;text-decoration:none;">Review</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- SIDEBAR: Agreement + Recent -->
+<div>
+    <!-- AI vs HUMAN AGREEMENT -->
+    <div class="card-modern" style="margin-bottom:20px;">
+        <div class="card-header-modern">
+            <h5><i class="fas fa-scale-balanced" style="color:var(--primary);"></i> AI vs Human Agreement</h5>
+        </div>
+        <div class="card-body-modern" style="text-align:center;">
+            <div style="position:relative;width:120px;height:120px;margin:0 auto 16px;">
+                <svg viewBox="0 0 36 36" style="width:120px;height:120px;transform:rotate(-90deg);">
+                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none" stroke="var(--border)" stroke-width="3"/>
+                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none" stroke="var(--success)" stroke-width="3"
+                          stroke-dasharray="{{ agreement_pct }}, 100"/>
+                </svg>
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+                    <div style="font-size:24px;font-weight:800;color:var(--text);">{{ agreement_pct }}%</div>
+                    <div style="font-size:10px;color:var(--text-muted);">AGREEMENT</div>
+                </div>
+            </div>
+            <div style="display:flex;justify-content:center;gap:20px;font-size:12px;">
+                <div>
+                    <div style="font-weight:700;color:var(--success);">{{ agreement_stats.confirm }}</div>
+                    <div style="color:var(--text-muted);">Confirmed</div>
+                </div>
+                <div>
+                    <div style="font-weight:700;color:var(--warning);">{{ agreement_stats.change }}</div>
+                    <div style="color:var(--text-muted);">Changed</div>
+                </div>
+                <div>
+                    <div style="font-weight:700;color:var(--text-dim);">{{ total_decisions }}</div>
+                    <div style="color:var(--text-muted);">Total</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RECENT DECISIONS -->
+    <div class="card-modern" style="margin-bottom:20px;">
+        <div class="card-header-modern">
+            <h5><i class="fas fa-clock-rotate-left" style="color:var(--primary);"></i> Recent Decisions</h5>
+        </div>
+        {% if recent_decisions %}
+        <div class="card-body-modern" style="padding:0;">
+            {% for audit in recent_decisions %}
+            {% set review = audit.fact_check_review %}
+            <div style="padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+                <span style="font-weight:700;color:var(--text);font-size:13px;">#{{ audit.id }}</span>
+                <span class="badge-modern {{ audit.predicted_label|lower }}" style="font-size:10px;">{{ audit.predicted_label }}</span>
+                <span style="font-size:11px;color:var(--text-dim);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    {{ review.decision if review else 'Pending' }}
+                </span>
+                <span style="font-size:10px;color:var(--text-muted);white-space:nowrap;">
+                    {{ review.updated_at.strftime('%m-%d') if review else '' }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card-body-modern">
+            <p style="color:var(--text-muted);font-size:13px;text-align:center;">No decisions yet.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- QUICK LINKS -->
+    <div class="card-modern">
+        <div class="card-body-modern">
+            <h5 style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:12px;"><i class="fas fa-link" style="color:var(--primary);"></i> Quick Links</h5>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <a href="{{ url_for('fact_checker.index', status='pending') }}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:var(--input-bg);color:var(--text);text-decoration:none;font-size:13px;font-weight:600;transition:background 0.2s;">
+                    <i class="fas fa-list" style="color:var(--primary);"></i> Full Review Queue
+                </a>
+                <a href="{{ url_for('fact_checker.index', status='reviewed') }}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:var(--input-bg);color:var(--text);text-decoration:none;font-size:13px;font-weight:600;transition:background 0.2s;">
+                    <i class="fas fa-check-double" style="color:var(--success);"></i> Reviewed Cases
+                </a>
+                <a href="{{ url_for('fact_checker.index', status='all') }}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:var(--input-bg);color:var(--text);text-decoration:none;font-size:13px;font-weight:600;transition:background 0.2s;">
+                    <i class="fas fa-layer-group" style="color:var(--text-muted);"></i> All Cases
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+</div>
+
+<style>
+@media (max-width: 1100px) {
+    div[style*="grid-template-columns:1fr 380px"] {
+        grid-template-columns: 1fr !important;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,384 @@
+{% extends "_base/base.html" %}
+{% block title %}Admin Panel - Somali MD{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:32px;">
+    <h1 style="font-size:28px;font-weight:800;color:var(--text);margin-bottom:6px;">Admin Dashboard</h1>
+    <p style="color:var(--text-muted);font-size:15px;">System control and monitoring center.</p>
+</div>
+
+<!-- ═══ SYSTEM STATS ═══ -->
+<div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:24px;">
+    <div class="stat-card">
+        <div class="stat-icon indigo"><i class="fas fa-users"></i></div>
+        <div class="stat-value">{{ total_users }}</div>
+        <div class="stat-label">Total Users</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon yellow"><i class="fas fa-clipboard-check"></i></div>
+        <div class="stat-value">{{ fact_checker_count }}</div>
+        <div class="stat-label">Fact-Checkers</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="fas fa-chart-line"></i></div>
+        <div class="stat-value">{{ total_predictions }}</div>
+        <div class="stat-label">Total Predictions</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon red"><i class="fas fa-magnifying-glass"></i></div>
+        <div class="stat-value">{{ total_evidence_audits }}</div>
+        <div class="stat-label">Evidence Audits</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon yellow"><i class="fas fa-clock"></i></div>
+        <div class="stat-value">{{ pending_reviews }}</div>
+        <div class="stat-label">Pending Reviews</div>
+    </div>
+</div>
+
+<!-- ═══ REVIEW PROGRESS + AI VS HUMAN ═══ -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+    <!-- Review Progress -->
+    <div class="card-modern">
+        <div class="card-header-modern">
+            <h5><i class="fas fa-tasks" style="color:var(--primary);"></i> Review Progress</h5>
+        </div>
+        <div class="card-body-modern">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div style="padding:14px;border-radius:12px;background:var(--input-bg);text-align:center;">
+                    <div style="font-size:24px;font-weight:800;color:var(--warning);">{{ pending_reviews }}</div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Pending</div>
+                </div>
+                <div style="padding:14px;border-radius:12px;background:var(--input-bg);text-align:center;">
+                    <div style="font-size:24px;font-weight:800;color:var(--success);">{{ completed_reviews }}</div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Completed</div>
+                </div>
+                <div style="padding:14px;border-radius:12px;background:var(--input-bg);text-align:center;">
+                    <div style="font-size:24px;font-weight:800;color:var(--text-dim);">{{ insufficient_evidence }}</div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Insufficient</div>
+                </div>
+                <div style="padding:14px;border-radius:12px;background:var(--input-bg);text-align:center;">
+                    <div style="font-size:24px;font-weight:800;color:var(--danger);">{{ failed_audits }}</div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Failed</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI vs Human -->
+    <div class="card-modern">
+        <div class="card-header-modern">
+            <h5><i class="fas fa-scale-balanced" style="color:var(--primary);"></i> AI vs Human Decisions</h5>
+        </div>
+        <div class="card-body-modern" style="text-align:center;">
+            <div style="position:relative;width:120px;height:120px;margin:0 auto 16px;">
+                <svg viewBox="0 0 36 36" style="width:120px;height:120px;transform:rotate(-90deg);">
+                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none" stroke="var(--border)" stroke-width="3"/>
+                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none" stroke="var(--success)" stroke-width="3"
+                          stroke-dasharray="{{ agreement_pct }}, 100"/>
+                </svg>
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+                    <div style="font-size:24px;font-weight:800;color:var(--text);">{{ agreement_pct }}%</div>
+                    <div style="font-size:10px;color:var(--text-muted);">AGREEMENT</div>
+                </div>
+            </div>
+            <div style="display:flex;justify-content:center;gap:20px;font-size:12px;">
+                <div>
+                    <div style="font-weight:700;color:var(--success);">{{ agreement_stats.confirm }}</div>
+                    <div style="color:var(--text-muted);">Confirmed</div>
+                </div>
+                <div>
+                    <div style="font-weight:700;color:var(--warning);">{{ agreement_stats.change }}</div>
+                    <div style="color:var(--text-muted);">Changed</div>
+                </div>
+                <div>
+                    <div style="font-weight:700;color:var(--text-dim);">{{ total_decisions }}</div>
+                    <div style="color:var(--text-muted);">Total</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ PREDICTION DISTRIBUTION + MODEL USAGE ═══ -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+    <!-- Prediction Distribution -->
+    <div class="card-modern">
+        <div class="card-header-modern">
+            <h5><i class="fas fa-chart-pie" style="color:var(--primary);"></i> Prediction Distribution</h5>
+        </div>
+        <div class="card-body-modern">
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                {% for label, count in pred_distribution.items() %}
+                <div style="flex:1;min-width:100px;padding:14px;border-radius:12px;background:var(--input-bg);text-align:center;border:1px solid var(--border);">
+                    <span class="badge-modern {{ label|lower }}" style="font-size:12px;">{{ label }}</span>
+                    <div style="font-size:22px;font-weight:800;color:var(--text);margin-top:6px;">{{ count }}</div>
+                </div>
+                {% endfor %}
+                {% if not pred_distribution %}
+                <p style="color:var(--text-muted);text-align:center;width:100%;">No predictions yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Model Usage -->
+    <div class="card-modern">
+        <div class="card-header-modern">
+            <h5><i class="fas fa-cubes" style="color:var(--primary);"></i> Model Usage</h5>
+        </div>
+        <div class="card-body-modern" style="max-height:260px;overflow-y:auto;">
+            {% for m in model_stats %}
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 0;{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
+                <span style="font-weight:700;color:var(--text);font-size:13px;min-width:120px;">{{ m.name }}</span>
+                <div style="flex:1;">
+                    <div class="progress-modern" style="height:6px;">
+                        <div class="bar indigo" style="width:{% if total_predictions > 0 %}{{ (m.count / total_predictions * 100)|int }}{% else %}0{% endif %}%;"></div>
+                    </div>
+                </div>
+                <span style="font-weight:700;font-size:13px;color:var(--text);min-width:30px;text-align:right;">{{ m.count }}</span>
+            </div>
+            {% endfor %}
+            {% if not model_stats %}
+            <p style="color:var(--text-muted);text-align:center;">No model data yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ═══ HIGH-RISK ACTIVITY ═══ -->
+{% if high_risk_data %}
+<div class="card-modern" style="margin-bottom:24px;border-left:4px solid var(--danger);">
+    <div class="card-header-modern">
+        <h5><i class="fas fa-triangle-exclamation" style="color:var(--danger);"></i> High-Risk Activity</h5>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr><th>Audit</th><th>Label</th><th>Confidence</th><th>Sources</th><th>Date</th></tr>
+            </thead>
+            <tbody>
+            {% for item in high_risk_data %}
+            <tr>
+                <td style="font-weight:700;">#{{ item.audit.id }}</td>
+                <td><span class="badge-modern {{ item.audit.predicted_label|lower }}">{{ item.audit.predicted_label }}</span></td>
+                <td style="font-weight:700;">{{ "%.1f"|format(item.confidence) }}%</td>
+                <td>{{ item.source_count }}</td>
+                <td style="color:var(--text-muted);font-size:12px;">{{ item.audit.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- ═══ RECENT ACTIVITY ═══ -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:24px;">
+    <div class="card-modern">
+        <div class="card-body-modern" style="text-align:center;">
+            <div style="font-size:28px;font-weight:800;color:var(--primary);">{{ recent_users }}</div>
+            <div style="font-size:12px;color:var(--text-muted);">New Users (24h)</div>
+        </div>
+    </div>
+    <div class="card-modern">
+        <div class="card-body-modern" style="text-align:center;">
+            <div style="font-size:28px;font-weight:800;color:var(--success);">{{ recent_predictions }}</div>
+            <div style="font-size:12px;color:var(--text-muted);">Predictions (24h)</div>
+        </div>
+    </div>
+    <div class="card-modern">
+        <div class="card-body-modern" style="text-align:center;">
+            <div style="font-size:28px;font-weight:800;color:var(--warning);">{{ recent_audits }}</div>
+            <div style="font-size:12px;color:var(--text-muted);">Audits (24h)</div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ USER MANAGEMENT ═══ -->
+<div class="card-modern" style="margin-bottom:24px;">
+    <div class="card-header-modern" style="display:flex;align-items:center;justify-content:space-between;">
+        <h5><i class="fas fa-users-gear" style="color:var(--primary);"></i> User Management</h5>
+        <button class="btn-modern primary" onclick="document.getElementById('createUserModal').classList.add('show')" style="font-size:13px;"><i class="fas fa-plus"></i> Create User</button>
+    </div>
+    {% if users %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Predictions</th><th>Joined</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+            {% for u in users %}
+            <tr>
+                <td style="font-weight:600;">{{ u.username }}</td>
+                <td style="color:var(--text-muted);font-size:13px;">{{ u.email }}</td>
+                <td>
+                    <span class="badge-modern {{ 'misinformation' if u.role == 'admin' else ('misleading' if u.role == 'fact_checker' else 'reliable') }}">
+                        {{ 'Fact-Checker' if u.role == 'fact_checker' else u.role | capitalize }}
+                    </span>
+                </td>
+                <td>
+                    {% if u.is_blocked %}
+                    <span class="badge-modern misinformation" style="font-size:11px;"><i class="fas fa-ban"></i> Blocked</span>
+                    {% elif u.email_verified %}
+                    <span class="badge-modern reliable" style="font-size:11px;"><i class="fas fa-check"></i> Verified</span>
+                    {% else %}
+                    <span class="badge-modern misleading" style="font-size:11px;"><i class="fas fa-times"></i> Unverified</span>
+                    {% endif %}
+                </td>
+                <td>{{ u.predictions | length }}</td>
+                <td style="color:var(--text-muted);font-size:12px;">{{ u.created_at.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    <button class="btn-modern ghost" style="padding:5px 12px;font-size:12px;" onclick="openEditModal('{{ u.id }}','{{ u.username }}','{{ u.email }}')">
+                        <i class="fas fa-pen"></i> Edit
+                    </button>
+                    {% if u.email != 'admin@somali.com' and not u.is_admin %}
+                    <form method="POST" action="{{ url_for('admin.block_user', user_id=u.id) }}" style="display:inline;">
+                        <button type="submit" class="btn-modern {{ 'green' if u.is_blocked else 'warning' }}" style="padding:5px 12px;font-size:12px;">
+                            <i class="fas {{ 'fa-lock-open' if u.is_blocked else 'fa-ban' }}"></i> {{ 'Unblock' if u.is_blocked else 'Block' }}
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin.delete_user', user_id=u.id) }}"
+                          onsubmit="return confirm('Delete user {{ u.username }}? This cannot be undone.');"
+                          style="display:inline;">
+                        <button type="submit" class="btn-modern danger" style="padding:5px 12px;font-size:12px;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                    {% if u.email != 'admin@somali.com' and current_user.email == 'admin@somali.com' %}
+                    <form method="POST" action="{{ url_for('admin.set_role', user_id=u.id) }}" style="display:inline-flex;gap:4px;align-items:center;">
+                        <select name="role" aria-label="Role for {{ u.username }}" style="padding:5px 7px;border:1px solid var(--border);border-radius:7px;background:var(--input-bg);color:var(--text);font-size:12px;">
+                            <option value="user" {% if u.role == 'user' %}selected{% endif %}>User</option>
+                            <option value="fact_checker" {% if u.role == 'fact_checker' %}selected{% endif %}>Fact-Checker</option>
+                            <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Admin</option>
+                        </select>
+                        <button type="submit" class="btn-modern indigo" style="padding:5px 9px;font-size:12px;" title="Save role"><i class="fas fa-user-gear"></i></button>
+                    </form>
+                    {% elif u.email == 'admin@somali.com' %}
+                    <span style="font-size:12px;color:var(--primary);font-weight:600;"><i class="fas fa-crown"></i> Primary Admin</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><i class="fas fa-users-slash"></i><h3>No users</h3></div>
+    {% endif %}
+</div>
+
+<!-- ═══ ALL PREDICTIONS ═══ -->
+<div class="card-modern" style="margin-bottom:24px;">
+    <div class="card-header-modern">
+        <h5><i class="fas fa-list-ul" style="color:var(--primary);"></i> All Predictions</h5>
+    </div>
+    {% if admin_predictions.items %}
+    <div class="table-container">
+        <table>
+            <thead><tr><th>ID</th><th>User</th><th>Text</th><th>Prediction</th><th>Confidence</th><th>Model</th><th>Date</th></tr></thead>
+            <tbody>
+            {% for p in admin_predictions.items %}
+            <tr>
+                <td style="font-weight:600;color:var(--text-muted);">#{{ p.id }}</td>
+                <td>{{ p.user.username }}</td>
+                <td><span class="text-truncate" title="{{ p.text }}">{{ p.text[:50] }}{% if p.text|length > 50 %}...{% endif %}</span></td>
+                <td><span class="badge-modern {{ p.prediction|lower }}">{{ p.prediction }}</span></td>
+                <td style="font-weight:600;">{{ "%.1f"|format(p.confidence) }}%</td>
+                <td>{{ MODEL_NAMES.get(p.model_used, p.model_used) }}</td>
+                <td style="color:var(--text-muted);font-size:12px;">{{ p.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><i class="fas fa-inbox"></i><h3>No predictions yet</h3></div>
+    {% endif %}
+</div>
+
+{% if admin_predictions.pages > 1 %}
+<nav><ul class="pagination-modern">
+    <li class="{% if not admin_predictions.has_prev %}disabled{% endif %}"><a href="{{ url_for('admin.index', pred_page=admin_predictions.page-1) }}"><i class="fas fa-chevron-left"></i></a></li>
+    {% set pg=admin_predictions.page %}{% set tp=admin_predictions.pages %}{% set pts=[] %}
+    {% if tp<=7 %}{% for n in range(1,tp+1) %}{% if pts.append(n) %}{% endif %}{% endfor %}
+    {% else %}{% if pts.append(1) %}{% endif %}{% if pg>3 %}{% if pts.append('...') %}{% endif %}{% endif %}
+    {% for n in range([pg-1,2]|max,[pg+1,tp-1]|min+1) %}{% if pts.append(n) %}{% endif %}{% endfor %}
+    {% if pg<tp-2 %}{% if pts.append('...') %}{% endif %}{% endif %}{% if pts.append(tp) %}{% endif %}{% endif %}
+    {% for item in pts %}
+        {% if item=='...' %}<li><span class="ellipsis">&hellip;</span></li>
+        {% elif item==admin_predictions.page %}<li><span class="active">{{ item }}</span></li>
+        {% else %}<li><a href="{{ url_for('admin.index', pred_page=item) }}">{{ item }}</a></li>{% endif %}
+    {% endfor %}
+    <li class="{% if not admin_predictions.has_next %}disabled{% endif %}"><a href="{{ url_for('admin.index', pred_page=admin_predictions.page+1) }}"><i class="fas fa-chevron-right"></i></a></li>
+</ul></nav>
+{% endif %}
+
+<!-- Create User Modal -->
+<div class="modal-overlay" id="createUserModal">
+    <div class="modal-box" style="max-width:460px;">
+        <div class="modal-head">
+            <h4><i class="fas fa-user-plus" style="color:var(--primary);"></i> Create New User</h4>
+            <button class="close-btn" onclick="document.getElementById('createUserModal').classList.remove('show')">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('admin.create_user') }}" style="padding:24px;">
+            <div class="form-group"><label>Username</label><input type="text" name="username" required minlength="3" placeholder="min 3 characters"></div>
+            <div class="form-group"><label>Email</label><input type="email" name="email" required placeholder="user@example.com"></div>
+            <div class="form-group"><label>Password</label><input type="password" name="password" required minlength="6" placeholder="min 6 characters"></div>
+            <div class="form-group">
+                <label>Role</label>
+                <select name="role" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);font-size:15px;">
+                    <option value="user">User</option>
+                    <option value="fact_checker">Fact-Checker</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:20px;">
+                <button type="button" class="btn-modern ghost" onclick="document.getElementById('createUserModal').classList.remove('show')" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn-modern primary" style="flex:1;"><i class="fas fa-plus"></i> Create User</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal-overlay" id="editUserModal">
+    <div class="modal-box" style="max-width:460px;">
+        <div class="modal-head">
+            <h4><i class="fas fa-user-pen" style="color:var(--primary);"></i> Edit User</h4>
+            <button class="close-btn" onclick="document.getElementById('editUserModal').classList.remove('show')">&times;</button>
+        </div>
+        <form id="editUserForm" method="POST" style="padding:24px;">
+            <div class="form-group"><label>Username</label><input type="text" id="editUsername" name="username" required minlength="3"></div>
+            <div class="form-group"><label>Email</label><input type="email" id="editEmail" name="email" required></div>
+            <div class="form-group"><label>New Password <small style="color:var(--text-dim);">(leave blank to keep current)</small></label><input type="password" id="editPassword" name="password" minlength="6" placeholder="Leave blank to keep current"></div>
+            <div style="display:flex;gap:12px;margin-top:20px;">
+                <button type="button" class="btn-modern ghost" onclick="document.getElementById('editUserModal').classList.remove('show')" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn-modern primary" style="flex:1;"><i class="fas fa-save"></i> Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+@media (max-width: 900px) {
+    div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
+    div[style*="grid-template-columns:1fr 1fr 1fr"] { grid-template-columns: 1fr !important; }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openEditModal(id, username, email) {
+    document.getElementById('editUsername').value = username;
+    document.getElementById('editEmail').value = email;
+    document.getElementById('editPassword').value = '';
+    document.getElementById('editUserForm').action = '/admin/edit_user/' + id;
+    document.getElementById('editUserModal').classList.add('show');
+}
+</script>
+{% endblock %}

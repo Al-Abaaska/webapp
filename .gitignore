@@ -1,0 +1,12 @@
+models/*.keras
+models/*.pkl
+models/somberta_model/
+models/sombertb_model/
+models/somerta_model/
+__pycache__/
+*.pyc
+.env
+uploads/
+*.log
+new models (2).zip
+new models (2)/

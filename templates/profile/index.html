@@ -1,0 +1,121 @@
+{% extends "_base/base.html" %}
+{% block title %}Profile - Somali MD{% endblock %}
+
+{% block content %}
+<div style="max-width:720px;margin:0 auto;">
+    <div style="margin-bottom:32px;">
+        <h1 style="font-size:28px;font-weight:800;color:var(--text);margin-bottom:6px;">My Profile</h1>
+        <p style="color:var(--text-muted);font-size:15px;">View your account details and update your information.</p>
+    </div>
+
+    <div class="card-modern">
+        <div class="card-body-modern" style="text-align:center;padding:40px 24px;">
+            <div class="avatar-lg">{{ current_user.username[0] | upper }}</div>
+            <h3 style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:4px;">{{ current_user.username }}</h3>
+            <p style="color:var(--text-muted);font-size:14px;">
+                <i class="fas fa-envelope" style="margin-right:4px;"></i> {{ current_user.email }}
+            </p>
+            <p style="color:var(--text-dim);font-size:13px;margin-top:4px;">
+                <i class="fas fa-calendar" style="margin-right:4px;"></i> Member since {{ current_user.created_at.strftime('%B %d, %Y') }}
+            </p>
+            <div style="margin-top:14px;display:flex;justify-content:center;gap:8px;">
+                <span class="badge-modern {{ 'misinformation' if current_user.role == 'admin' else ('misleading' if current_user.role == 'fact_checker' else 'reliable') }}">
+                    <i class="fas {{ 'fa-user-shield' if current_user.role == 'admin' else ('fa-clipboard-check' if current_user.role == 'fact_checker' else 'fa-user') }}"></i> {{ 'Fact-Checker' if current_user.role == 'fact_checker' else current_user.role | capitalize }}
+                </span>
+                {% if current_user.email_verified %}
+                <span class="badge-modern reliable"><i class="fas fa-check-circle"></i> Email Verified</span>
+                {% else %}
+                <span class="badge-modern misleading"><i class="fas fa-exclamation-circle"></i> Unverified</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-grid" style="grid-template-columns:repeat(2,1fr);">
+        <div class="stat-card">
+            <div class="stat-icon indigo"><i class="fas fa-chart-line"></i></div>
+            <div class="stat-value">{{ total_predictions }}</div>
+            <div class="stat-label">Total Predictions</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon yellow"><i class="fas fa-layer-group"></i></div>
+            <div class="stat-value">{{ total_batches }}</div>
+            <div class="stat-label">File Uploads</div>
+        </div>
+    </div>
+
+    <div class="card-modern">
+        <div class="card-header-modern">
+            <h5><i class="fas fa-chart-pie" style="color:var(--primary-light);"></i> Prediction Breakdown</h5>
+        </div>
+        <div class="card-body-modern">
+            {% set total_all = stats.reliable + stats.misinfo + stats.misleading %}
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;text-align:center;">
+                <div>
+                    <div style="font-size:30px;font-weight:800;color:var(--success);">{{ stats.reliable }}</div>
+                    <div style="color:var(--text-muted);font-size:13px;margin-top:4px;">Reliable</div>
+                    <div class="progress-modern" style="margin-top:8px;">
+                        <div class="bar green" style="width:{{ ((stats.reliable / total_all * 100) if total_all > 0 else 0)|int }}%;"></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size:30px;font-weight:800;color:var(--danger);">{{ stats.misinfo }}</div>
+                    <div style="color:var(--text-muted);font-size:13px;margin-top:4px;">Misinformation</div>
+                    <div class="progress-modern" style="margin-top:8px;">
+                        <div class="bar red" style="width:{{ ((stats.misinfo / total_all * 100) if total_all > 0 else 0)|int }}%;"></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size:30px;font-weight:800;color:var(--warning);">{{ stats.misleading }}</div>
+                    <div style="color:var(--text-muted);font-size:13px;margin-top:4px;">Misleading</div>
+                    <div class="progress-modern" style="margin-top:8px;">
+                        <div class="bar yellow" style="width:{{ ((stats.misleading / total_all * 100) if total_all > 0 else 0)|int }}%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-modern">
+        <div class="card-header-modern">
+            <h5><i class="fas fa-user-pen" style="color:var(--primary-light);"></i> Update Account</h5>
+        </div>
+        <div class="card-body-modern">
+            <form method="POST" action="{{ url_for('profile.index') }}">
+                <div style="display:grid;gap:16px;">
+                    <div>
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-input" value="{{ current_user.username }}" disabled>
+                        <small style="color:var(--text-dim);font-size:12px;">Username cannot be changed.</small>
+                    </div>
+                    <div>
+                        <label class="form-label">Email Address</label>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <input type="email" class="form-input" name="email" value="{{ current_user.email }}" required style="flex:1;">
+                            {% if current_user.email_verified %}
+                            <span style="color:var(--success);font-size:13px;white-space:nowrap;"><i class="fas fa-check-circle"></i> Verified</span>
+                            {% else %}
+                            <span style="color:var(--warning);font-size:13px;white-space:nowrap;"><i class="fas fa-exclamation-triangle"></i> Unverified</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">Current Password</label>
+                        <input type="password" class="form-input" name="current_password" autocomplete="current-password">
+                    </div>
+                    <div>
+                        <label class="form-label">New Password</label>
+                        <input type="password" class="form-input" name="new_password" autocomplete="new-password">
+                        <small style="color:var(--text-dim);font-size:12px;">Leave blank to keep current password.</small>
+                    </div>
+                    <div>
+                        <button type="submit" class="btn-modern primary">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

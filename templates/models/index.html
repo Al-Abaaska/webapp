@@ -1,0 +1,235 @@
+{% extends "_base/base.html" %}
+{% block title %}Model Comparison - Somali MD{% endblock %}
+
+{% block content %}
+<div style="max-width:1100px;margin:0 auto;">
+    <div style="margin-bottom:32px;">
+        <h1 style="font-size:28px;font-weight:800;color:var(--text);margin-bottom:6px;">Model Comparison</h1>
+        <p style="color:var(--text-muted);font-size:15px;">How do all models behave on the same Somali political text?</p>
+    </div>
+
+    <!-- INPUT -->
+    <div class="card-modern" style="margin-bottom:24px;">
+        <div class="card-body-modern">
+            <form method="POST" action="{{ url_for('models_bp.index') }}">
+                <textarea class="form-input" name="text" rows="5" style="min-height:140px;font-size:16px;line-height:1.7;resize:vertical;"
+                    placeholder="Paste Somali political text here to compare across all models...">{{ text }}</textarea>
+                <button type="submit" class="btn-modern primary" style="margin-top:16px;">
+                    <i class="fas fa-cogs"></i> Compare All Models
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {% if results %}
+
+    <!-- ═══ CONSENSUS SUMMARY ═══ -->
+    {% if consensus %}
+    <div class="card-modern" style="margin-bottom:24px;border-left:4px solid {% if high_disagreement %}var(--danger){% elif consensus.agreement >= 75 %}var(--success){% else %}var(--warning){% endif %};">
+        <div class="card-body-modern" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;">
+                <p style="font-size:12px;color:var(--text-muted);font-weight:800;margin-bottom:6px;">MODEL CONSENSUS</p>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span class="badge-modern {{ consensus.label|lower }}" style="font-size:16px;padding:8px 16px;">{{ consensus.label }}</span>
+                    <span style="font-size:22px;font-weight:800;color:var(--text);">{{ consensus.agreement }}%</span>
+                    <span style="font-size:13px;color:var(--text-muted);">agreement</span>
+                </div>
+                <p style="font-size:13px;color:var(--text-dim);margin-top:6px;">{{ consensus.count }} of {{ consensus.total }} models agree</p>
+            </div>
+            <div style="text-align:center;">
+                {% if high_disagreement %}
+                <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:14px 20px;">
+                    <p style="font-size:14px;font-weight:700;color:var(--danger);margin-bottom:4px;"><i class="fas fa-triangle-exclamation"></i> High Model Disagreement</p>
+                    <p style="font-size:12px;color:var(--text-muted);">Human review is recommended.</p>
+                </div>
+                {% elif consensus.agreement >= 75 %}
+                <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:14px 20px;">
+                    <p style="font-size:14px;font-weight:700;color:var(--success);margin-bottom:4px;"><i class="fas fa-circle-check"></i> Strong Agreement</p>
+                    <p style="font-size:12px;color:var(--text-muted);">Models are consistent.</p>
+                </div>
+                {% else %}
+                <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:14px 20px;">
+                    <p style="font-size:14px;font-weight:700;color:var(--warning);margin-bottom:4px;"><i class="fas fa-circle-info"></i> Moderate Agreement</p>
+                    <p style="font-size:12px;color:var(--text-muted);">Some models disagree.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- PREDICTION DISTRIBUTION -->
+    <div class="card-modern" style="margin-bottom:24px;">
+        <div class="card-header-modern">
+            <h5><i class="fas fa-chart-pie" style="color:var(--primary);"></i> Prediction Distribution</h5>
+        </div>
+        <div class="card-body-modern">
+            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+                {% for label, count in distribution.items() %}
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:12px;background:var(--input-bg);border:1px solid var(--border);">
+                    <span class="badge-modern {{ label|lower }}" style="font-size:13px;">{{ label }}</span>
+                    <span style="font-size:20px;font-weight:800;color:var(--text);">{{ count }}</span>
+                    <span style="font-size:12px;color:var(--text-muted);">model{{ 's' if count != 1 else '' }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ═══ MODEL RESULTS BY TYPE ═══ -->
+    {% for group_name, group_icon, group_items in groups %}
+    <div class="card-modern" style="margin-bottom:24px;">
+        <div class="card-header-modern">
+            <h5><i class="{{ group_icon }}" style="color:var(--primary);"></i> {{ group_name }}</h5>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>Prediction</th>
+                        <th>Confidence</th>
+                        <th>F1 Score</th>
+                        <th>Time</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for key, r in group_items %}
+                {% set is_best = (r.key == 'sombertb') %}
+                <tr style="{% if is_best %}background:rgba(16,185,129,0.04);{% endif %}">
+                    <td>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-weight:700;color:var(--text);">{{ r.name }}</span>
+                            {% if is_best %}<span style="font-size:10px;font-weight:700;color:var(--success);background:rgba(16,185,129,0.12);padding:2px 8px;border-radius:6px;">BEST</span>{% endif %}
+                        </div>
+                    </td>
+                    <td><span class="badge-modern {{ r.prediction|lower }}">{{ r.prediction }}</span></td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <div style="flex:1;max-width:100px;">
+                                <div class="progress-modern" style="height:6px;">
+                                    <div class="bar {% if r.prediction|lower=='reliable' %}green{% elif r.prediction|lower=='misinformation' %}red{% else %}yellow{% endif %}" style="width:{{ r.confidence }}%;"></div>
+                                </div>
+                            </div>
+                            <span style="font-weight:700;font-size:13px;color:var(--text);min-width:45px;">{{ "%.1f"|format(r.confidence) }}%</span>
+                        </div>
+                    </td>
+                    <td>
+                        {% if r.f1 > 0 %}
+                        <span style="font-weight:600;color:var(--text);">{{ r.f1 }}%</span>
+                        {% else %}
+                        <span style="color:var(--text-muted);font-size:12px;">N/A</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span style="font-weight:600;color:var(--text-dim);font-size:13px;">{{ r.elapsed_ms }}ms</span>
+                    </td>
+                    <td>
+                        {% if consensus and r.prediction == consensus.label %}
+                        <i class="fas fa-check-circle" style="color:var(--success);font-size:14px;" title="Matches consensus"></i>
+                        {% else %}
+                        <i class="fas fa-minus-circle" style="color:var(--text-muted);font-size:14px;" title="Differs from consensus"></i>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- ═══ CONFIDENCE COMPARISON CHART ═══ -->
+    <div class="card-modern" style="margin-bottom:24px;">
+        <div class="card-header-modern">
+            <h5><i class="fas fa-chart-bar" style="color:var(--primary);"></i> Confidence Comparison</h5>
+        </div>
+        <div class="card-body-modern" style="display:flex;justify-content:center;">
+            <canvas id="comparisonChart" style="max-height:350px;"></canvas>
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if results %}
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    Chart.register(ChartDataLabels);
+    var ctx = document.getElementById('comparisonChart').getContext('2d');
+    var results = {{ results | tojson }};
+    var order = ['sombertb','somerta','svm','logistic_regression','random_forest','naive_bayes','cnn_bilstm','bilstm'];
+    var labels = [], confidences = [], bgColors = [], borderColors = [];
+    var colorMap = {
+        'reliable': ['rgba(16,185,129,0.8)', 'rgba(16,185,129,1)'],
+        'misinformation': ['rgba(239,68,68,0.8)', 'rgba(239,68,68,1)'],
+        'misleading': ['rgba(245,158,11,0.8)', 'rgba(245,158,11,1)']
+    };
+    var fallbackColors = [
+        ['rgba(59,130,246,0.8)', 'rgba(59,130,246,1)'],
+        ['rgba(139,92,246,0.8)', 'rgba(139,92,246,1)'],
+        ['rgba(107,114,128,0.8)', 'rgba(107,114,128,1)'],
+        ['rgba(236,72,153,0.8)', 'rgba(236,72,153,1)'],
+        ['rgba(20,184,166,0.8)', 'rgba(20,184,166,1)'],
+        ['rgba(245,158,11,0.8)', 'rgba(245,158,11,1)'],
+        ['rgba(239,68,68,0.8)', 'rgba(239,68,68,1)'],
+        ['rgba(16,185,129,0.8)', 'rgba(16,185,129,1)']
+    ];
+    var fi = 0;
+    order.forEach(function(key) {
+        if (results[key]) {
+            labels.push(results[key].model || results[key].name);
+            confidences.push(results[key].confidence);
+            var pred = (results[key].prediction || '').toLowerCase();
+            if (colorMap[pred]) {
+                bgColors.push(colorMap[pred][0]);
+                borderColors.push(colorMap[pred][1]);
+            } else {
+                bgColors.push(fallbackColors[fi % fallbackColors.length][0]);
+                borderColors.push(fallbackColors[fi % fallbackColors.length][1]);
+            }
+            fi++;
+        }
+    });
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Confidence (%)',
+                data: confidences,
+                backgroundColor: bgColors,
+                borderColor: borderColors,
+                borderWidth: 1,
+                borderRadius: 6,
+                maxBarThickness: 60
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { top: 28 } },
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: 'Model Confidence Comparison', color: '#e2e8f0', font: { size: 14, weight: '600' } },
+                datalabels: { anchor: 'end', align: 'top', color: '#1e293b', font: { weight: 'bold', size: 13 }, formatter: function(v) { return v + '%'; } }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true, max: 100,
+                    ticks: { callback: function(v) { return v + '%'; }, color: '#94a3b8' },
+                    grid: { color: 'rgba(99,102,241,0.06)' }
+                },
+                x: { ticks: { color: '#94a3b8', maxRotation: 45 }, grid: { color: 'rgba(99,102,241,0.06)' } }
+            }
+        }
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,131 @@
+{% extends "_base/base.html" %}
+{% block title %}Database Viewer - Somali MD{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:32px;">
+    <h1 style="font-size:28px;font-weight:800;color:var(--text);margin-bottom:6px;">Database Viewer</h1>
+    <p style="color:var(--text-muted);font-size:15px;">Browse all tables and records in the database.</p>
+</div>
+
+<div class="stat-grid" style="margin-bottom:24px;">
+    {% for tname, count in table_stats.items() %}
+    <a href="{{ url_for('admin.database', table=tname) }}" class="stat-card" style="text-decoration:none;{{ 'border:2px solid var(--primary);' if current_table == tname else '' }}">
+        <div class="stat-icon {{ 'indigo' if current_table == tname else 'yellow' }}">
+            <i class="fas fa-{{ 'users' if tname == 'users' else 'brain' if tname == 'predictions' else 'layer-group' if tname == 'batch_jobs' else 'key' }}"></i>
+        </div>
+        <div class="stat-value">{{ count }}</div>
+        <div class="stat-label">{{ tname | replace('_', ' ') | title }}</div>
+    </a>
+    {% endfor %}
+</div>
+
+<div class="card-modern">
+    <div class="card-header-modern">
+        <h5>
+            <i class="fas fa-table" style="color:var(--primary);"></i>
+            {{ current_table | replace('_', ' ') | title }}
+        </h5>
+        <span class="text-muted-modern">{{ total }} total rows</span>
+    </div>
+    {% if items.items %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    {% for col in columns %}
+                    <th>{{ col | replace('_', ' ') | title }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items.items %}
+                <tr>
+                    {% for col in columns %}
+                    <td>
+                        {% set val = item | attr(col) %}
+                        {% if col == 'text' %}
+                            <span class="text-truncate" title="{{ val }}">{{ val[:60] }}{% if val and val|length > 60 %}...{% endif %}</span>
+                        {% elif col == 'email_verified' %}
+                            <span class="badge-modern {{ 'reliable' if val else 'misleading' }}">{{ 'Yes' if val else 'No' }}</span>
+                        {% elif col == 'used' %}
+                            <span class="badge-modern {{ 'misinformation' if val else 'reliable' }}">{{ 'Used' if val else 'Fresh' }}</span>
+                        {% elif col == 'role' %}
+                            <span class="badge-modern {{ 'misinformation' if val == 'admin' else 'reliable' }}">{{ val | capitalize }}</span>
+                        {% elif col == 'prediction' %}
+                            <span class="badge-modern {{ val | lower }}">{{ val }}</span>
+                        {% elif col == 'confidence' %}
+                            {{ "%.1f" | format(val) }}%
+                        {% elif col == 'password_hash' %}
+                            <code style="font-size:11px;">{{ val[:20] }}...</code>
+                        {% elif col == 'created_at' or col == 'expires_at' %}
+                            {{ val.strftime('%Y-%m-%d %H:%M') if val else '-' }}
+                        {% else %}
+                            {{ val }}
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if items.pages > 1 %}
+    <div style="padding:16px 24px;">
+        <nav aria-label="Page navigation">
+            <ul class="pagination-modern">
+                <li class="{% if not items.has_prev %}disabled{% endif %}">
+                    <a href="{{ url_for('admin.database', table=current_table, page=items.page - 1) }}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+                {% set page_num = items.page %}
+                {% set total_pages = items.pages %}
+                {% set pages_to_show = [] %}
+                {% if total_pages <= 7 %}
+                    {% for p_num in range(1, total_pages + 1) %}
+                        {% if pages_to_show.append(p_num) %}{% endif %}
+                    {% endfor %}
+                {% else %}
+                    {% if pages_to_show.append(1) %}{% endif %}
+                    {% if page_num > 3 %}
+                        {% if pages_to_show.append('...') %}{% endif %}
+                    {% endif %}
+                    {% for p_num in range([page_num - 1, 2]|max, [page_num + 1, total_pages - 1]|min + 1) %}
+                        {% if pages_to_show.append(p_num) %}{% endif %}
+                    {% endfor %}
+                    {% if page_num < total_pages - 2 %}
+                        {% if pages_to_show.append('...') %}{% endif %}
+                    {% endif %}
+                    {% if pages_to_show.append(total_pages) %}{% endif %}
+                {% endif %}
+                {% for item_p in pages_to_show %}
+                    {% if item_p == '...' %}
+                        <li><span class="ellipsis">&hellip;</span></li>
+                    {% elif item_p == items.page %}
+                        <li><span class="active">{{ item_p }}</span></li>
+                    {% else %}
+                        <li>
+                            <a href="{{ url_for('admin.database', table=current_table, page=item_p) }}">{{ item_p }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                <li class="{% if not items.has_next %}disabled{% endif %}">
+                    <a href="{{ url_for('admin.database', table=current_table, page=items.page + 1) }}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-database"></i>
+        <h3>No records found</h3>
+        <p>This table is empty.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

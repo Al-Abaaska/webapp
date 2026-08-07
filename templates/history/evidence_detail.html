@@ -1,0 +1,65 @@
+{% extends "_base/base.html" %}
+{% block title %}Evidence Audit - Somali MD{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:24px;">
+    <a href="{{ url_for('history.index') }}" style="color:var(--primary);font-size:13px;text-decoration:none;"><i class="fas fa-arrow-left"></i> Prediction history</a>
+    <h1 style="font-size:28px;font-weight:800;color:var(--text);margin:12px 0 6px;">Evidence Audit #{{ audit.id }}</h1>
+    <p style="color:var(--text-muted);font-size:14px;">Retrieved {{ audit.created_at.strftime('%Y-%m-%d %H:%M') }} &middot; {{ audit.status|capitalize }}</p>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-bottom:20px;">
+    <div class="card-modern"><div class="card-body-modern">
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:800;"><i class="fas fa-robot"></i> AI PREDICTION</p>
+        <span class="badge-modern {{ audit.predicted_label|lower }}">{{ audit.predicted_label }}</span>
+        {% if audit.prediction_record %}<strong style="margin-left:10px;color:var(--text);">{{ "%.1f"|format(audit.prediction_record.confidence) }}%</strong>{% endif %}
+        <p style="font-size:12px;color:var(--text-muted);margin:18px 0 6px;font-weight:700;">MAIN CLAIM</p>
+        <p style="color:var(--text);line-height:1.7;">{{ audit.main_claim or audit.original_text }}</p>
+        {% if audit.ai_explanation %}
+        <p style="font-size:12px;color:var(--text-muted);margin:18px 0 6px;font-weight:700;">AI EXPLANATION</p>
+        <p style="color:var(--text-muted);line-height:1.7;">{{ audit.ai_explanation }}</p>
+        {% endif %}
+        {% if queries %}
+        <p style="font-size:12px;color:var(--text-muted);margin:18px 0 6px;font-weight:700;">SEARCH QUERIES</p>
+        <p style="color:var(--text-dim);font-size:13px;">{{ queries|join(' · ') }}</p>
+        {% endif %}
+    </div></div>
+
+    <div class="card-modern"><div class="card-body-modern">
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:800;"><i class="fas fa-user-check"></i> FACT-CHECKER DECISION</p>
+        {% if audit.fact_check_review %}
+        {% set review = audit.fact_check_review %}
+        <span class="badge-modern {{ 'reliable' if review.decision == 'Confirmed Reliable' else ('misinformation' if review.decision == 'Confirmed Misinformation' else 'misleading') }}">{{ review.decision }}</span>
+        <p style="color:var(--text);line-height:1.7;margin-top:16px;">{{ review.explanation }}</p>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:16px;">Reviewed by {{ review.reviewer.username if review.reviewer else 'Deleted account' }} on {{ review.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        {% else %}
+        <div style="display:flex;gap:10px;align-items:flex-start;color:var(--text-muted);line-height:1.6;">
+            <i class="fas fa-clock" style="color:var(--warning);margin-top:4px;"></i>
+            <p>Awaiting fact-checker review. The AI prediction and retrieved sources are not a final human verdict.</p>
+        </div>
+        {% endif %}
+    </div></div>
+</div>
+
+<div class="card-modern"><div class="card-body-modern">
+    <h2 style="font-size:18px;margin-bottom:6px;">Retrieved sources ({{ sources|length }})</h2>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:18px;">Related sources require human review; a match is not automatic proof. An official institution is primary evidence for its own announcement, while broader disputed claims still require independent corroboration.</p>
+    {% for source in sources %}
+    <div style="padding:16px 0;border-top:1px solid var(--border);">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:7px;">
+            <strong style="color:var(--text);">{{ source.source }}</strong>
+            <span style="font-size:11px;color:var(--text-muted);">{{ source.platform }}{% if source.provider %} via {{ source.provider }}{% endif %}</span>
+            {% if source.credibility %}<span style="font-size:10px;font-weight:700;color:var(--primary);">{{ source.credibility }}</span>{% endif %}
+            {% set displayed_stance = 'Repeats' if audit.predicted_label in ['Misinformation', 'Misleading'] and source.stance == 'Supports' else source.stance %}
+            <span class="badge-modern" style="font-size:10px;">{{ displayed_stance }}</span>
+            <span style="font-size:12px;font-weight:700;color:var(--primary);">{{ "%.0f"|format(source.similarity_score) }}% match</span>
+            {% if source.published_date %}<span style="font-size:11px;color:var(--text-muted);"><i class="fas fa-calendar"></i> {{ source.published_date }}</span>{% endif %}
+        </div>
+        <p style="font-weight:600;color:var(--text);margin-bottom:5px;">{{ source.title }}</p>
+        {% if source.snippet %}<p style="font-size:13px;color:var(--text-muted);line-height:1.6;">{{ source.snippet }}</p>{% endif %}
+        {% if source.explanation %}<p style="font-size:12px;color:var(--text-dim);margin-top:7px;"><i class="fas fa-circle-info"></i> {{ source.explanation }}</p>{% endif %}
+        <a href="{{ source.url }}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;color:var(--primary);font-size:12px;">Open source <i class="fas fa-external-link"></i></a>
+    </div>
+    {% else %}<p style="color:var(--text-muted);">No sources were stored for this audit.</p>{% endfor %}
+</div></div>
+{% endblock %}

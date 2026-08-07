@@ -1,0 +1,47 @@
+{% extends "_base/auth_base.html" %}
+{% block title %}Login - Somali MD{% endblock %}
+
+{% block auth_content %}
+<div class="auth-card">
+    <div class="auth-logo">
+        <i class="fas fa-shield-alt"></i>
+    </div>
+    <h2 class="auth-title">Welcome Back</h2>
+    <p class="auth-subtitle">Sign in to detect Somali misinformation</p>
+
+    <form method="POST" action="{{ url_for('auth.login') }}">
+        <div style="margin-bottom:18px;">
+            <label class="form-label" for="email">Email Address</label>
+            <input type="email" class="form-input" id="email" name="email"
+                   placeholder="Enter your email" required autofocus>
+        </div>
+
+        <div style="margin-bottom:18px;">
+            <label class="form-label" for="password">Password</label>
+            <input type="password" class="form-input" id="password" name="password"
+                   placeholder="Enter your password" required>
+        </div>
+
+        <div style="margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:8px;">
+               
+             
+            </div>
+            <a href="{{ url_for('auth.forgot_password') }}" style="font-size:13px;color:var(--primary);font-weight:600;text-decoration:none;">
+                Forgot Password?
+            </a>
+        </div>
+
+        <button type="submit" class="btn-modern primary full">
+            <i class="fas fa-right-to-bracket"></i> Login
+        </button>
+    </form>
+
+    <p style="text-align:center;margin-top:24px;font-size:13px;color:var(--text-muted);">
+        Don't have an account?
+        <a href="{{ url_for('auth.register') }}" style="color:var(--primary);font-weight:600;text-decoration:none;">
+            Register here
+        </a>
+    </p>
+</div>
+{% endblock %}

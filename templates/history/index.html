@@ -1,0 +1,125 @@
+{% extends "_base/base.html" %}
+{% block title %}History - Somali MD{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:32px;">
+    <h1 style="font-size:28px;font-weight:800;color:var(--text);margin-bottom:6px;">Prediction History</h1>
+    <p style="color:var(--text-muted);font-size:15px;">Browse, filter, and manage your past predictions.</p>
+</div>
+
+<div class="card-modern" style="margin-bottom:20px;">
+    <div class="card-body-modern">
+        <form method="GET" action="{{ url_for('history.index') }}" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+            <div style="flex:1;min-width:160px;">
+                <label class="form-label">Model</label>
+                <select class="form-input" name="model">
+                    <option value="" {% if not model_filter %}selected{% endif %}>All</option>
+                    <option value="svm" {% if model_filter=='svm' %}selected{% endif %}>SVM</option>
+                    <option value="logistic_regression" {% if model_filter=='logistic_regression' %}selected{% endif %}>Logistic Regression</option>
+                    <option value="random_forest" {% if model_filter=='random_forest' %}selected{% endif %}>Random Forest</option>
+                    <option value="naive_bayes" {% if model_filter=='naive_bayes' %}selected{% endif %}>Naive Bayes</option>
+                </select>
+            </div>
+            <div style="flex:1;min-width:160px;">
+                <label class="form-label">Label</label>
+                <select class="form-input" name="label">
+                    <option value="" {% if not label_filter %}selected{% endif %}>All</option>
+                    <option value="Reliable" {% if label_filter=='Reliable' %}selected{% endif %}>Reliable</option>
+                    <option value="Misinformation" {% if label_filter=='Misinformation' %}selected{% endif %}>Misinformation</option>
+                    <option value="Misleading" {% if label_filter=='Misleading' %}selected{% endif %}>Misleading</option>
+                </select>
+            </div>
+            <div style="flex:2;min-width:200px;">
+                <label class="form-label">Search</label>
+                <input type="text" class="form-input" name="search" placeholder="Search text..." value="{{ search }}">
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button type="submit" class="btn-modern primary" style="padding:11px 20px;"><i class="fas fa-filter"></i> Filter</button>
+                <a href="{{ url_for('history.index') }}" class="btn-modern outline" style="padding:11px 20px;"><i class="fas fa-times"></i></a>
+                <a href="{{ url_for('history.export',model=model_filter,label=label_filter,search=search) }}" class="btn-modern outline" style="padding:11px 20px;"><i class="fas fa-file-excel"></i> Export</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if predictions.items %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <span style="color:var(--text-muted);font-size:14px;">{{ total }} prediction{{ 's' if total!=1 else '' }}</span>
+    <div style="display:flex;gap:8px;align-items:center;">
+        <span id="selCount" style="font-size:13px;color:var(--primary);font-weight:600;display:none;">0 selected</span>
+        <button type="button" class="btn-modern danger" id="delSelBtn" style="display:none;padding:8px 16px;font-size:13px;" onclick="document.getElementById('delSelForm').submit();"><i class="fas fa-trash"></i> Delete Selected</button>
+        <button type="button" class="btn-modern danger" style="padding:8px 16px;font-size:13px;" onclick="if(confirm('Delete ALL {{ total }} predictions?'))document.getElementById('delAllForm').submit();"><i class="fas fa-trash"></i> Delete All</button>
+    </div>
+</div>
+
+<form id="delSelForm" method="POST" action="{{ url_for('history.delete_selected',page=page,model=model_filter,label=label_filter,search=search) }}" style="display:none;"><div id="selIds"></div></form>
+<form id="delAllForm" method="POST" action="{{ url_for('history.delete_all') }}" style="display:none;"></form>
+
+<div class="card-modern">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:40px;"><input type="checkbox" id="selAll" style="width:16px;height:16px;cursor:pointer;"></th>
+                    <th>ID</th><th>Text</th><th>Prediction</th><th>Confidence</th><th>Model</th><th>Evidence</th><th>Date</th><th style="width:50px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in predictions.items %}
+                <tr>
+                    <td><input type="checkbox" class="row-cb" value="{{ p.id }}" style="width:16px;height:16px;cursor:pointer;"></td>
+                    <td style="font-weight:600;color:var(--text-dim);">#{{ p.id }}</td>
+                    <td><span class="text-truncate">{{ p.text[:50] }}{% if p.text|length>50 %}...{% endif %}</span></td>
+                    <td><span class="badge-modern {{ p.prediction|lower }}">{{ p.prediction }}</span></td>
+                    <td style="font-weight:600;">{{ "%.1f"|format(p.confidence) }}%</td>
+                    <td>{{ MODEL_NAMES.get(p.model_used,p.model_used) }}</td>
+                    <td>
+                        {% if p.evidence_audits %}
+                        {% set latest_audit = p.evidence_audits[-1] %}
+                        <a href="{{ url_for('history.evidence_detail',audit_id=latest_audit.id) }}" style="color:var(--primary);font-size:12px;font-weight:600;text-decoration:none;">View audit</a>
+                        {% if latest_audit.fact_check_review %}<span title="Fact-checker reviewed" style="color:var(--success);margin-left:5px;"><i class="fas fa-user-check"></i></span>{% else %}<span title="Awaiting fact-checker review" style="color:var(--warning);margin-left:5px;"><i class="fas fa-clock"></i></span>{% endif %}
+                        {% else %}<span style="color:var(--text-muted);font-size:12px;">Not run</span>{% endif %}
+                    </td>
+                    <td style="white-space:nowrap;">{{ p.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('history.delete_prediction',pred_id=p.id,page=page,model=model_filter,label=label_filter,search=search) }}" onsubmit="return confirm('Delete?');" style="display:inline;">
+                            <button type="submit" style="background:none;border:none;color:var(--danger);cursor:pointer;padding:4px;" title="Delete"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if predictions.pages > 1 %}
+<nav><ul class="pagination-modern">
+    <li class="{% if not predictions.has_prev %}disabled{% endif %}"><a href="{{ url_for('history.index',page=predictions.page-1,model=model_filter,label=label_filter,search=search) }}"><i class="fas fa-chevron-left"></i></a></li>
+    {% set pg=predictions.page %}{% set tp=predictions.pages %}{% set pts=[] %}
+    {% if tp<=7 %}{% for n in range(1,tp+1) %}{% if pts.append(n) %}{% endif %}{% endfor %}
+    {% else %}{% if pts.append(1) %}{% endif %}{% if pg>3 %}{% if pts.append('...') %}{% endif %}{% endif %}
+    {% for n in range([pg-1,2]|max,[pg+1,tp-1]|min+1) %}{% if pts.append(n) %}{% endif %}{% endfor %}
+    {% if pg<tp-2 %}{% if pts.append('...') %}{% endif %}{% endif %}{% if pts.append(tp) %}{% endif %}{% endif %}
+    {% for item in pts %}
+        {% if item=='...' %}<li><span class="ellipsis">&hellip;</span></li>
+        {% elif item==predictions.page %}<li><span class="active">{{ item }}</span></li>
+        {% else %}<li><a href="{{ url_for('history.index',page=item,model=model_filter,label=label_filter,search=search) }}">{{ item }}</a></li>{% endif %}
+    {% endfor %}
+    <li class="{% if not predictions.has_next %}disabled{% endif %}"><a href="{{ url_for('history.index',page=predictions.page+1,model=model_filter,label=label_filter,search=search) }}"><i class="fas fa-chevron-right"></i></a></li>
+</ul></nav>
+{% endif %}
+
+{% else %}
+<div class="card-modern"><div class="empty-state"><i class="fas fa-inbox"></i><h3>No predictions found</h3><p>Try adjusting filters or make some predictions.</p></div></div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+    var all=document.getElementById('selAll'),cbs=document.querySelectorAll('.row-cb'),cnt=document.getElementById('selCount'),btn=document.getElementById('delSelBtn'),box=document.getElementById('selIds');
+    function upd(){var c=document.querySelectorAll('.row-cb:checked'),n=c.length;cnt.textContent=n+' selected';cnt.style.display=n>0?'inline':'none';btn.style.display=n>0?'inline-flex':'none';box.innerHTML='';c.forEach(function(x){var i=document.createElement('input');i.type='hidden';i.name='selected_ids';i.value=x.value;box.appendChild(i)})}
+    if(all)all.addEventListener('change',function(){cbs.forEach(function(c){c.checked=all.checked});upd()});
+    cbs.forEach(function(c){c.addEventListener('change',upd)});
+});
+</script>
+{% endblock %}

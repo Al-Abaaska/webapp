@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Somali Misinformation Detector — AI-Powered Detection</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+    <div class="nav-brand">
+        <div class="logo"><i class="fas fa-shield-halved"></i></div>
+        <span>Somali MD</span>
+    </div>
+    <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how">How It Works</a></li>
+        <li><a href="#models">Models</a></li>
+        <li><a href="#demo">Try Demo</a></li>
+    </ul>
+    <div class="nav-actions">
+        <button class="theme-toggle" type="button" title="Toggle theme">
+            <i class="fas fa-sun icon-sun"></i>
+            <i class="fas fa-moon icon-moon"></i>
+        </button>
+        <a href="{{ url_for('auth.login') }}" class="btn-ghost">Login</a>
+        <a href="{{ url_for('auth.register') }}" class="btn-glow">Get Started</a>
+    </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="home">
+    <div class="particles" id="particles"></div>
+    <div class="hero-left">
+        <div class="hero-badge"><span class="dot"></span> AI-Powered Detection</div>
+        <h1>Detect Political <span class="gradient">Misinformation</span> with AI</h1>
+        <p>Analyze political articles, speeches, and social media posts using advanced machine learning models to identify misinformation with confidence.</p>
+        <div class="hero-btns">
+            <a href="#demo" class="btn-primary"><i class="fas fa-wand-magic-sparkles"></i> Analyze Article</a>
+            <a href="#how" class="btn-glass"><i class="fas fa-play"></i> How It Works</a>
+        </div>
+    </div>
+    <div class="hero-right">
+        <div class="globe"></div>
+        <div class="float-card card-analysis">
+            <div class="ring">
+                <svg viewBox="0 0 120 120" width="120" height="120">
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="8"/>
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="url(#grad1)" stroke-width="8" stroke-linecap="round" stroke-dasharray="327" stroke-dashoffset="60"/>
+                    <defs><linearGradient id="grad1" x1="0%" y1="0%" x2="100%"><stop offset="0%" style="stop-color:#5B5FFF"/><stop offset="100%" style="stop-color:#00D4FF"/></linearGradient></defs>
+                </svg>
+                <div style="text-align:center;"><div class="score">92%</div><div class="pct">confidence</div></div>
+            </div>
+            <div class="label-tag red">Likely Misinformation</div>
+            <div class="meta">Misinformation Detection</div>
+        </div>
+    
+    </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+    <div class="section-label"><i class="fas fa-bolt"></i> Capabilities</div>
+    <h2 class="section-title">Why It Matters</h2>
+    <p class="section-desc">Political misinformation can influence opinions, cause division, and undermine trust in democratic processes. Our AI fights back.</p>
+    <div class="features-grid">
+        <div class="f-card">
+            <div class="icon i1"><i class="fas fa-brain"></i></div>
+            <h3>AI-Powered Detection</h3>
+            <p>Deep learning models analyze text patterns, sentiment, and linguistic cues to detect misinformation.</p>
+        </div>
+        <div class="f-card">
+            <div class="icon i2"><i class="fas fa-network-wired"></i></div>
+            <h3>ML Classification</h3>
+            <p>Multiple classifiers including SVM, Naive Bayes, Random Forest, and Logistic Regression work together.</p>
+        </div>
+        <div class="f-card">
+            <div class="icon i3"><i class="fas fa-magnifying-glass-chart"></i></div>
+            <h3>Fact Verification</h3>
+            <p>Cross-reference claims against credible sources and fact-checking databases for accuracy.</p>
+        </div>
+        <div class="f-card">
+            <div class="icon i4"><i class="fas fa-bolt"></i></div>
+            <h3>Real-Time Analysis</h3>
+            <p>Get instant results with confidence scores and probability breakdowns in seconds.</p>
+        </div>
+    </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+    <div style="text-align:center;">
+        <div class="section-label"><i class="fas fa-list-ol"></i> Process</div>
+        <h2 class="section-title">How It Works</h2>
+        <p class="section-desc" style="margin-left:auto;margin-right:auto;">Our detection pipeline follows a rigorous 5-step process from text input to final prediction.</p>
+    </div>
+    <div class="timeline">
+        <div class="t-step">
+            <div class="circle active"><i class="fas fa-file-pen"></i></div>
+            <h4>1. Submit Text</h4>
+            <p>Paste a political article, speech, or social media post for analysis.</p>
+        </div>
+        <div class="t-step">
+            <div class="circle"><i class="fas fa-broom"></i></div>
+            <h4>2. Preprocessing</h4>
+            <p>Text is cleaned, tokenized, and stopwords are removed for analysis.</p>
+        </div>
+        <div class="t-step">
+            <div class="circle"><i class="fas fa-vector-square"></i></div>
+            <h4>3. Feature Extraction</h4>
+            <p>TF-IDF vectorizer converts text into numerical feature vectors.</p>
+        </div>
+        <div class="t-step">
+            <div class="circle"><i class="fas fa-microchip"></i></div>
+            <h4>4. Classification</h4>
+            <p>ML models classify the text using trained classifiers.</p>
+        </div>
+        <div class="t-step">
+            <div class="circle"><i class="fas fa-chart-pie"></i></div>
+            <h4>5. Prediction</h4>
+            <p>Results with confidence scores and probability breakdowns.</p>
+        </div>
+    </div>
+</section>
+
+<!-- MODELS -->
+<section id="models">
+    <div style="text-align:center;">
+        <div class="section-label"><i class="fas fa-layer-group"></i> Technology</div>
+        <h2 class="section-title">Supported Models</h2>
+        <p class="section-desc" style="margin-left:auto;margin-right:auto;">Six machine learning models powering our detection engine, ranked by F1-score.</p>
+    </div>
+    <div class="models-grid">
+        <div class="m-card" style="border:1px solid rgba(16,185,129,0.3);">
+            <div style="position:absolute;top:12px;right:12px;font-size:11px;background:rgba(16,185,129,0.15);color:#10b981;padding:3px 8px;border-radius:12px;font-weight:700;">#1 Best</div>
+            <div class="m-icon"><i class="fas fa-brain"></i></div>
+            <h3>SomBERTb</h3>
+            <p>Somali-specific transformer model trained on political news.</p>
+        </div>
+        <div class="m-card" style="border:1px solid rgba(59,130,246,0.3);">
+            <div style="position:absolute;top:12px;right:12px;font-size:11px;background:rgba(59,130,246,0.15);color:#3b82f6;padding:3px 8px;border-radius:12px;font-weight:700;">#2</div>
+            <div class="m-icon"><i class="fas fa-language"></i></div>
+            <h3>SomBERTa</h3>
+            <p>Somali-specific transformer model. F1: 96.39%</p>
+        </div>
+        <div class="m-card">
+            <div style="position:absolute;top:12px;right:12px;font-size:11px;background:rgba(245,158,11,0.15);color:#f59e0b;padding:3px 8px;border-radius:12px;font-weight:700;">#3</div>
+            <div class="m-icon"><i class="fas fa-expand"></i></div>
+            <h3>SVM</h3>
+            <p>Support Vector Machine for high-dimensional text classification. F1: 94.36%</p>
+        </div>
+        <div class="m-card">
+            <div style="position:absolute;top:12px;right:12px;font-size:11px;background:rgba(139,92,246,0.15);color:#8b5cf6;padding:3px 8px;border-radius:12px;font-weight:700;">#4</div>
+            <div class="m-icon"><i class="fas fa-chart-line"></i></div>
+            <h3>Logistic Regression</h3>
+            <p>Linear model for multiclass classification. F1: 94.15%</p>
+        </div>
+        <div class="m-card">
+            <div style="position:absolute;top:12px;right:12px;font-size:11px;background:rgba(239,68,68,0.15);color:#ef4444;padding:3px 8px;border-radius:12px;font-weight:700;">#5</div>
+            <div class="m-icon"><i class="fas fa-tree"></i></div>
+            <h3>Random Forest</h3>
+            <p>Ensemble method combining multiple decision trees. F1: 92.56%</p>
+        </div>
+        <div class="m-card">
+            <div style="position:absolute;top:12px;right:12px;font-size:11px;background:rgba(107,114,128,0.15);color:#6b7280;padding:3px 8px;border-radius:12px;font-weight:700;">#6</div>
+            <div class="m-icon"><i class="fas fa-spray-can"></i></div>
+            <h3>Naive Bayes</h3>
+            <p>Probabilistic classifier based on Bayes' theorem. F1: 91.78%</p>
+        </div>
+    </div>
+</section>
+
+<!-- DEMO -->
+<section id="demo">
+    <div style="text-align:center;">
+        <div class="section-label"><i class="fas fa-wand-magic-sparkles"></i> Interactive</div>
+        <h2 class="section-title">Try It Yourself</h2>
+        <p class="section-desc" style="margin-left:auto;margin-right:auto;">Paste any Somali political text and see our AI detect misinformation in real-time.</p>
+    </div>
+    <div class="demo-wrapper">
+        <div class="demo-box">
+            <div class="demo-input">
+                <textarea id="demoText" placeholder="Paste political news or social media content here..."></textarea>
+            </div>
+            <div class="demo-actions">
+                <div class="left">
+                    <span class="chip active" data-model="sombertb" style="background:rgba(16,185,129,0.15);color:#10b981;">SomBERTb</span>
+                    <span class="chip" data-model="somerta" style="background:rgba(59,130,246,0.15);color:#3b82f6;">SomBERTa</span>
+                    <span class="chip" data-model="svm">SVM</span>
+                    <span class="chip" data-model="logistic_regression">Logistic Regression</span>
+                    <span class="chip" data-model="random_forest">Random Forest</span>
+                    <span class="chip" data-model="naive_bayes">Naive Bayes</span>
+                </div>
+                <button class="btn-analyze" id="analyzeBtn" onclick="runDemo()"><i class="fas fa-magnifying-glass"></i> Analyze</button>
+            </div>
+            <div class="demo-result" id="demoResult">
+                <div class="result-header">
+                    <span class="result-badge" id="resBadge"></span>
+                    <span class="result-conf">Confidence: <strong id="resConf"></strong></span>
+                </div>
+                <div class="result-bars" id="resBars"></div>
+                <div class="result-explain">
+                    <h4><i class="fas fa-robot"></i> AI Analysis</h4>
+                    <p id="resExplain"></p>
+                </div>
+                <div id="resClaim"></div>
+                <div id="resSimilar"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+    <div class="footer-brand">
+        <div class="logo"><i class="fas fa-shield-halved"></i></div>
+        <span>Somali MD</span>
+    </div>
+    <ul class="footer-links">
+   
+    </ul>
+    <div class="footer-copy">&copy; 2026 Somali Misinformation Detector — JUST University</div>
+</footer>
+
+<script src="{{ url_for('static', filename='js/landing.js') }}"></script>
+</body>
+</html>

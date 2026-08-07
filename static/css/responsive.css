@@ -1,0 +1,52 @@
+@media (max-width: 1400px) {
+    .content-wrap { padding:24px 24px; }
+}
+@media (max-width: 1100px) {
+    .content-wrap { padding:22px 20px; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .dashboard-charts { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 900px) {
+    .topnav-center { display:none; }
+    .topnav-left .hamburger { display:block; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+    .content-wrap { padding:16px 14px; }
+    .stat-grid { grid-template-columns:1fr; }
+    .dashboard-charts { grid-template-columns: 1fr !important; }
+    .nav { padding:12px 20px; }
+    .nav-links { display:none; }
+    .hero { flex-direction:column; padding:100px 20px 60px; }
+    .hero h1 { font-size:36px; }
+    .hero-right { margin-left:0; margin-top:40px; }
+    .globe { width:280px; height:280px; }
+    .float-card { display:none; }
+    section { padding:60px 20px; }
+    .section-title { font-size:30px; }
+    .features-grid,.models-grid { grid-template-columns:1fr; }
+    .timeline { flex-direction:column; gap:32px; align-items:center; }
+    .timeline::before { display:none; }
+    .footer { flex-direction:column; gap:20px; text-align:center; }
+    .stats-grid { grid-template-columns:1fr 1fr; }
+    .topnav { padding: 0 14px; }
+    .stat-card { padding: 18px; }
+    .stat-card .stat-value { font-size: 26px; }
+}
+@media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .stat-card { padding: 16px; }
+    .stat-card .stat-value { font-size: 22px; }
+    .stat-card .stat-label { font-size: 12px; }
+    .content-wrap { padding: 12px 10px; }
+    .card-modern .card-body-modern { padding: 16px; }
+    .card-modern .card-header-modern { padding: 14px 16px; }
+    .hero h1 { font-size:28px; letter-spacing:-1px; }
+    .hero-btns { flex-direction:column; align-items:center; }
+    .hero-stats { flex-direction:column; gap:20px; align-items:center; }
+    .section-title { font-size:26px; }
+    .demo-actions { flex-direction:column; gap:12px; }
+    .demo-actions .left { flex-wrap:wrap; justify-content:center; }
+    .stats-grid { grid-template-columns:1fr; }
+    .stat-item .num { font-size:32px; }
+}
