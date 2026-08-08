@@ -28,3 +28,24 @@
 .auth-footer { text-align: center; margin-top: 24px; font-size: 13px; color: var(--text-dim); }
 .auth-footer a { color: var(--primary-light); font-weight: 600; text-decoration: none; }
 .auth-footer a:hover { text-decoration: underline; }
+
+.auth-steps { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 28px; }
+.auth-step { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--text-dim); white-space: nowrap; }
+.auth-step .step-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; flex-shrink: 0;
+    background: var(--border-light); color: var(--text-muted);
+    transition: all 0.3s;
+}
+.auth-step.done { color: var(--success); }
+.auth-step.done .step-num { background: var(--success); color: #fff; }
+.auth-step.active { color: var(--text); }
+.auth-step.active .step-num {
+    background: linear-gradient(135deg, var(--primary), #8b5cf6); color: #fff;
+    box-shadow: 0 0 12px rgba(99,102,241,0.4);
+}
+.auth-step-line { width: 18px; height: 2px; background: var(--border-light); border-radius: 2px; }
+.auth-step-line.done { background: var(--success); }
+
+.btn-modern.loading { opacity: 0.75; cursor: wait; pointer-events: none; }

@@ -9,11 +9,25 @@
     <h2 class="auth-title">Verify Your Email</h2>
     <p class="auth-subtitle">Enter the 6-digit code sent to your email</p>
 
+    <div class="auth-steps">
+        <div class="auth-step done">
+            <span class="step-num"><i class="fas fa-check"></i></span> Account
+        </div>
+        <div class="auth-step-line done"></div>
+        <div class="auth-step active">
+            <span class="step-num">2</span> Verify Email
+        </div>
+        <div class="auth-step-line"></div>
+        <div class="auth-step">
+            <span class="step-num">3</span> Login
+        </div>
+    </div>
+
     <div style="text-align:center;margin-bottom:20px;">
         <span style="font-size:14px;color:var(--text-muted);word-break:break-all;">{{ email }}</span>
     </div>
 
-    <form method="POST" action="{{ url_for('auth.verify_otp') }}">
+    <form method="POST" action="{{ url_for('auth.verify_otp') }}" id="verifyForm">
         <input type="hidden" name="email" value="{{ email }}">
 
         <div style="margin-bottom:24px;">
@@ -24,7 +38,7 @@
                    style="text-align:center;font-size:24px;letter-spacing:10px;font-weight:700;">
         </div>
 
-        <button type="submit" class="btn-modern primary full">
+        <button type="submit" class="btn-modern primary full" id="verifyBtn">
             <i class="fas fa-check-circle"></i> Verify Email
         </button>
     </form>
@@ -46,4 +60,15 @@
         </a>
     </p>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('verifyForm').addEventListener('submit', function() {
+    var btn = document.getElementById('verifyBtn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+});
+</script>
 {% endblock %}

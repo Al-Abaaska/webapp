@@ -32,7 +32,7 @@
             </a>
         </div>
 
-        <button type="submit" class="btn-modern primary full">
+        <button type="submit" class="btn-modern primary full" id="loginBtn">
             <i class="fas fa-right-to-bracket"></i> Login
         </button>
     </form>
@@ -44,4 +44,15 @@
         </a>
     </p>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelector('form').addEventListener('submit', function() {
+    var btn = document.getElementById('loginBtn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
+});
+</script>
 {% endblock %}
