@@ -15,7 +15,7 @@ for i, r in enumerate(results):
     print()
 
 print("\n=== Exa Test ===")
-from multi_search import ExaProvider
+from search.multi_search import ExaProvider
 provider = ExaProvider()
 results = provider.search(text, max_results=5)
 for i, r in enumerate(results):

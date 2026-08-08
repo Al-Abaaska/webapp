@@ -3,14 +3,14 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlsplit, urlunsplit
 
-from gemini_service import semantic_match
-from source_search import (
+from .gemini_service import semantic_match
+from search.source_search import (
     search_somali_sources,
     search_web_everywhere_with_fallback,
 )
-from facebook_search import search_facebook_with_fallback
-from youtube_search import fetch_youtube_metadata, search_youtube_with_fallback
-from somali_sources import identify_trusted_publisher
+from search.facebook_search import search_facebook_with_fallback
+from search.youtube_search import fetch_youtube_metadata, search_youtube_with_fallback
+from .somali_sources import identify_trusted_publisher
 
 
 MIN_EVIDENCE_SIMILARITY = 30

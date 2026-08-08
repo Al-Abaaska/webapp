@@ -8,7 +8,7 @@ from models import (
     db, login_manager, mail, User, FactCheckReview, EvidenceAssignmentEvent,
     EvidenceAudit, ClaimRecord,
 )
-from claim_service import claim_fingerprint, normalize_claim
+from services.claim_service import claim_fingerprint, normalize_claim
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.config.from_object(Config)
@@ -27,7 +27,7 @@ def load_user(user_id):
 
 
 # Import and register all blueprints
-from routes import (
+from controllers import (
     main_bp, auth_bp, predict_bp, batch_bp,
     history_bp, models_bp, profile_bp, fact_checker_bp, admin_bp, api_bp
 )

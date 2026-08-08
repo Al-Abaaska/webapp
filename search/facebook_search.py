@@ -118,7 +118,7 @@ def _search_via_apify(queries, max_posts=10, original_text=''):
 
 def _search_via_startpage(queries, original_text='', max_posts=10):
     """Fallback: search Startpage with original text, filter Facebook URLs."""
-    from multi_search import StartpageProvider
+    from .multi_search import StartpageProvider
     provider = StartpageProvider()
     search_queries = _query_plan(queries, original_text)
     all_posts = []

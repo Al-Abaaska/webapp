@@ -25,7 +25,7 @@ class Config:
 
     # Upload and model folders
     UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
-    MODELS_FOLDER = os.path.join(BASE_DIR, 'models')
+    MODELS_FOLDER = os.path.join(BASE_DIR, 'ml_models')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max upload
 
     # Gmail SMTP for sending OTP emails

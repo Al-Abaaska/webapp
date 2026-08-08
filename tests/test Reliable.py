@@ -1,5 +1,5 @@
-from gemini_service import extract_main_claim, generate_search_queries, semantic_match
-from source_search import search_somali_sources_with_fallback
+from services.gemini_service import extract_main_claim, generate_search_queries, semantic_match
+from search.source_search import search_somali_sources_with_fallback
 
 text = 'Isbahaysiga Qaran ee Isbeddel doonka oo soo saaray War-Saxaafadeed uu uga falceliyay khudbaddii Madaxweyne Xasan Sheekh uu ka jeediyay Baarlamaanka iyagoo sidoo kale ka hadlay xaaladda Siyaasadeed ee dalka iyo Arrimaha doorashooyinka'
 

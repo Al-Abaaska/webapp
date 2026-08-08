@@ -1,7 +1,7 @@
 """Run every available classifier and calculate a transparent ensemble vote."""
 from collections import Counter
 
-from ml_service import MODEL_CONFIG
+from .ml_service import MODEL_CONFIG
 
 
 LABELS = ('Reliable', 'Misinformation', 'Misleading')

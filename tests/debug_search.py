@@ -2,8 +2,8 @@
 import sys
 sys.path.insert(0, '.')
 
-from source_search import search_web_everywhere_with_fallback, search_web_everywhere
-from gemini_service import generate_search_queries, extract_main_claim
+from search.source_search import search_web_everywhere_with_fallback, search_web_everywhere
+from services.gemini_service import generate_search_queries, extract_main_claim
 
 # The original text from user's test
 text = "Isbahaysiga Qaran ee Isbeddel doonka oo soo saaray War-Saxaafadeed uu uga falceliyay khudbaddii Madaxweyne Xasan Sheekh uu ka jeediyay Baarlamaanka iyagoo sidoo kale ka hadlay xaaladda Siyaasadeed ee dalka iyo Arrimaha doorashooyinka."

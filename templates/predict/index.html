@@ -87,19 +87,11 @@
 .fc-new-btn { margin-top:16px; padding:8px 16px; border-radius:8px; border:1px solid var(--border, rgba(255,255,255,0.08)); background:transparent; color:var(--text-muted, rgba(255,255,255,0.5)); font-size:12px; cursor:pointer; transition:all 0.2s; }
 .fc-new-btn:hover { border-color:var(--primary, #5b5bff); color:var(--primary, #5b5bff); }
 .fc-ensemble-summary { padding:20px 28px 26px; }
-.fc-ensemble-score { display:flex;justify-content:space-between;align-items:end;gap:12px;margin:18px 0 8px; }
-.fc-ensemble-score strong { font-size:24px;color:var(--text); }
-.fc-ensemble-score span { font-size:12px;color:var(--text-muted); }
-.fc-agreement-bar { height:10px;border-radius:999px;background:rgba(100,116,139,.16);overflow:hidden; }
-.fc-agreement-fill { height:100%;background:linear-gradient(90deg,var(--primary),#818cf8);border-radius:999px; }
-.fc-vote-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:15px 0; }
-.fc-vote-item { padding:11px;border:1px solid var(--border);border-radius:10px;background:var(--input-bg);text-align:center; }
-.fc-vote-item strong { display:block;font-size:18px;color:var(--text); }
-.fc-vote-item span { font-size:11px;color:var(--text-muted); }
 .fc-ensemble-metrics { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px; }
 .fc-ensemble-metric { padding:12px;border-radius:10px;background:var(--input-bg);border:1px solid var(--border); }
 .fc-ensemble-metric small { display:block;font-size:10px;color:var(--text-muted);font-weight:800;text-transform:uppercase;margin-bottom:4px; }
 .fc-ensemble-metric strong { color:var(--text);font-size:15px; }
+.fc-ensemble-metrics.single { grid-template-columns:1fr; }
 .fc-model-details { margin-top:16px;border-top:1px solid var(--border);padding-top:14px; }
 .fc-model-details summary { cursor:pointer;color:var(--primary);font-size:13px;font-weight:700; }
 .fc-model-table { width:100%;margin-top:12px;border-collapse:collapse; }
@@ -194,8 +186,8 @@
                     <div class="fc-mode-wrap">
                         <label class="fc-mode-label" for="fcMode">Prediction Mode</label>
                         <select class="fc-model-select" id="fcMode">
+                            <option value="ensemble" selected>All Models - Ensemble</option>
                             <option value="single">Single Model</option>
-                            <option value="ensemble">All Models - Ensemble</option>
                         </select>
                     </div>
                     <div class="fc-mode-wrap" id="fcModelWrap">
@@ -243,11 +235,15 @@
         callPredict(text, modelEl.value, modeEl.value);
     });
 
-    modeEl.addEventListener('change', function() {
+    function syncPredictionMode() {
         var ensemble = modeEl.value === 'ensemble';
         modelEl.disabled = ensemble;
         modelWrap.style.opacity = ensemble ? '0.45' : '1';
-    });
+        modelWrap.setAttribute('aria-hidden', ensemble ? 'true' : 'false');
+    }
+
+    modeEl.addEventListener('change', syncPredictionMode);
+    syncPredictionMode();
 
     function callPredict(text, model, mode) {
         fetch('/api/predict', {
@@ -541,7 +537,6 @@
     function renderEnsemblePrediction(d) {
         var ensemble = d.ensemble;
         var pred = d.prediction.toLowerCase();
-        var votes = ensemble.vote_counts || {};
         var rows = (ensemble.models || []).map(function(item) {
             return '<tr><td><strong>' + esc(item.model) + '</strong></td>' +
                 '<td><span class="fc-conf-label ' + esc(item.prediction.toLowerCase()) + '">' + esc(item.prediction) + '</span></td>' +
@@ -550,17 +545,10 @@
         return '<div class="fc-pred-card">' +
             '<div class="fc-pred-head"><span class="fc-pred-badge ' + pred + '">' +
                 '<i class="fas fa-people-group"></i> Final Ensemble Prediction: ' + esc(d.prediction) + '</span>' +
+                renderConfidenceSignal(pred, Number(ensemble.average_confidence)) +
                 '<span class="fc-pred-model">All Models - Ensemble</span></div>' +
             '<div class="fc-ensemble-summary">' +
-                '<div class="fc-ensemble-score"><strong>' + ensemble.winning_count + ' / ' + ensemble.total_models + ' models agree</strong><span>' + Number(ensemble.agreement).toFixed(1) + '% agreement</span></div>' +
-                '<div class="fc-agreement-bar"><div class="fc-agreement-fill" style="width:' + Number(ensemble.agreement) + '%"></div></div>' +
-                '<div class="fc-vote-grid">' +
-                    '<div class="fc-vote-item"><strong>' + Number(votes.Reliable || 0) + '</strong><span>Reliable models</span></div>' +
-                    '<div class="fc-vote-item"><strong>' + Number(votes.Misleading || 0) + '</strong><span>Misleading models</span></div>' +
-                    '<div class="fc-vote-item"><strong>' + Number(votes.Misinformation || 0) + '</strong><span>Misinformation models</span></div>' +
-                '</div>' +
-                '<div class="fc-ensemble-metrics">' +
-                    '<div class="fc-ensemble-metric"><small>Model Agreement</small><strong>' + Number(ensemble.agreement).toFixed(1) + '%</strong></div>' +
+                '<div class="fc-ensemble-metrics single">' +
                     '<div class="fc-ensemble-metric"><small>Average Winning Confidence</small><strong>' + Number(ensemble.average_confidence).toFixed(1) + '%</strong></div>' +
                 '</div>' +
                 (ensemble.tie_break ? '<div class="fc-tie-note"><i class="fas fa-scale-balanced"></i> ' + esc(ensemble.tie_break) + '</div>' : '') +

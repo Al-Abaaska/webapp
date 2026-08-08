@@ -82,7 +82,7 @@ MODEL_NAMES['ensemble'] = 'All Models - Ensemble'
 
 def _load_traditional_model(model_name):
     """Load a .pkl model file from the models/ folder."""
-    models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
+    models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ml_models')
     path = os.path.join(models_dir, f'{model_name}.pkl')
     if not os.path.exists(path):
         return None
@@ -101,7 +101,7 @@ def _load_transformer_model(model_name):
         print(f'[ML] transformers/torch import failed: {e}')
         return None, None
 
-    models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
+    models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ml_models')
     model_path = os.path.join(models_dir, model_name)
 
     if not os.path.exists(model_path):
@@ -128,7 +128,7 @@ def _load_keras_model(model_file):
         print(f'[ML] tensorflow import failed: {e}')
         return None
 
-    models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
+    models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ml_models')
     path = os.path.join(models_dir, model_file)
 
     if not os.path.exists(path):
@@ -147,7 +147,7 @@ def _load_keras_model(model_file):
 
 def _load_keras_tokenizer():
     """Load the shared Keras tokenizer."""
-    models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
+    models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ml_models')
     path = os.path.join(models_dir, 'keras_tokenizer.pkl')
     if not os.path.exists(path):
         print(f'[ML] Keras tokenizer not found: {path}')
@@ -221,7 +221,7 @@ class MLService:
         if self.tfidf is None or model_key not in self.models:
             return None, None
 
-        from preprocessing import preprocess
+        from .preprocessing import preprocess
         processed = preprocess(text)
         vectorized = self.tfidf.transform([processed])
         prediction = self.models[model_key].predict(vectorized)[0]

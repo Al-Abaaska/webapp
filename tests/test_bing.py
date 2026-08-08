@@ -5,7 +5,7 @@ sys.path.insert(0, '.')
 text = 'Isbahaysiga Qaran ee Isbeddel doonka oo soo saaray War-Saxaafadeed'
 
 print("=== Bing Test ===")
-from multi_search import BingProvider
+from search.multi_search import BingProvider
 provider = BingProvider()
 results = provider.search(text, max_results=5)
 for i, r in enumerate(results):

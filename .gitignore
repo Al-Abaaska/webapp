@@ -1,9 +1,11 @@
-models/*.keras
-models/*.pkl
-models/somberta_model/
-models/sombertb_model/
-models/somerta_model/
+ml_models/*.keras
+ml_models/*.pkl
+ml_models/somberta_model/
+ml_models/sombertb_model/
+ml_models/somerta_model/
 __pycache__/
+*.pyc
+*.pyo
 *.pyc
 .env
 uploads/

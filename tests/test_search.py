@@ -1,6 +1,6 @@
-from source_search import search_somali_sources_with_fallback, search_web_everywhere_with_fallback
-from facebook_search import search_facebook_with_fallback
-from youtube_search import search_youtube_with_fallback
+from search.source_search import search_somali_sources_with_fallback, search_web_everywhere_with_fallback
+from search.facebook_search import search_facebook_with_fallback
+from search.youtube_search import search_youtube_with_fallback
 
 text = 'Deg Deg Maraykanka Oo Cirro Bahdil Ku Sameeyay, Xamse Oo Afka Furtay'
 

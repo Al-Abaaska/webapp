@@ -2,7 +2,7 @@
 Multi-provider text search — drop-in replacement for ddgs.DDGS().
 Tries Startpage → DuckDuckGo → SearXNG with automatic fallback and retry logic.
 """
-from multi_search import multi_search
+from .multi_search import multi_search
 
 
 def ddg_text_search(query, max_results=8):

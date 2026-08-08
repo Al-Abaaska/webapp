@@ -4,8 +4,8 @@ Free, no API key needed.
 """
 import re
 import requests
-from ddg_search import DDGS
-from multi_search import clean_text
+from .ddg_search import DDGS
+from .multi_search import clean_text
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 

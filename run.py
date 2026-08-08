@@ -5,9 +5,12 @@ from app import app
 def preload_models():
     """Preload ML models synchronously on startup."""
     try:
-        from ml_service import MLService
+        from services.ml_service import MLService
         ml = MLService()
-        print(f'[Startup] Models preloaded: {list(ml.models.keys())} + {list(ml.transformers.keys())}')
+        print(
+            f'[Startup] Models preloaded ({ml.available_model_count}/8): '
+            f'{list(ml.available_models.keys())}'
+        )
     except Exception as e:
         print(f'[Startup] Model preload failed: {e}')
 

@@ -6,10 +6,10 @@ import os
 import re
 from datetime import datetime
 
-from ddg_search import DDGS
-from multi_search import clean_text, multi_search
+from .ddg_search import DDGS
+from .multi_search import clean_text, multi_search
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from somali_sources import SOMALI_SOURCES, SOMALI_SOURCE_MAP
+from services.somali_sources import SOMALI_SOURCES, SOMALI_SOURCE_MAP
 
 
 def search_somali_sources(query, max_per_source=2):
@@ -76,7 +76,7 @@ def search_somali_sources_with_fallback(claim_query, original_text, max_per_sour
     
     # Also search YouTube
     try:
-        from youtube_search import search_youtube_with_fallback
+        from .youtube_search import search_youtube_with_fallback
         yt_results = search_youtube_with_fallback([claim_query], original_text, max_results=3)
         for r in yt_results:
             web_results.append({
@@ -125,7 +125,7 @@ def search_web_everywhere(query, num_results=5):
         formatted = []
         for r in results:
             link = r.get('href', '')
-            from google_search import _detect_source, _detect_platform, _extract_date_from_url
+            from .google_search import _detect_source, _detect_platform, _extract_date_from_url
             formatted.append({
                 'title': r.get('title', ''),
                 'snippet': r.get('body', ''),
@@ -143,7 +143,7 @@ def search_web_everywhere(query, num_results=5):
             else []
         )
         if urls_needing:
-            import google_search
+            from . import google_search
             with ThreadPoolExecutor(max_workers=5) as executor:
                 futures = {executor.submit(google_search._extract_date_from_page, item['url']): item
                           for item in urls_needing}

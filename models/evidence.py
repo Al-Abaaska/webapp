@@ -1,119 +1,5 @@
 from datetime import datetime
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin, LoginManager
-from flask_mail import Mail
-from werkzeug.security import generate_password_hash, check_password_hash
-
-# ─── Shared objects ─────────────────────────────
-db = SQLAlchemy()
-login_manager = LoginManager()
-mail = Mail()
-
-
-# ─── Database Models ────────────────────────────
-
-class User(UserMixin, db.Model):
-    """User account table."""
-    __tablename__ = 'users'
-
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)
-    role = db.Column(db.String(20), default='user')
-    email_verified = db.Column(db.Boolean, default=False)
-    is_blocked = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    predictions = db.relationship('Prediction', backref='user', lazy=True)
-    batch_jobs = db.relationship('BatchJob', backref='user', lazy=True)
-
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
-
-    @property
-    def is_admin(self):
-        return self.role == 'admin'
-
-    @property
-    def is_fact_checker(self):
-        return self.role == 'fact_checker'
-
-    @property
-    def can_fact_check(self):
-        return self.role in {'fact_checker', 'admin'}
-
-
-class Prediction(db.Model):
-    """Stores each prediction result."""
-    __tablename__ = 'predictions'
-
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    text = db.Column(db.Text, nullable=False)
-    prediction = db.Column(db.String(20), nullable=False)
-    confidence = db.Column(db.Float, nullable=False)
-    model_used = db.Column(db.String(50), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-
-class ClaimRecord(db.Model):
-    """One exact normalized claim with its reusable investigation and spread count."""
-    __tablename__ = 'claim_records'
-
-    id = db.Column(db.Integer, primary_key=True)
-    fingerprint = db.Column(db.String(64), unique=True, nullable=False, index=True)
-    normalized_text = db.Column(db.Text, nullable=False)
-    original_text = db.Column(db.Text, nullable=False)
-    first_prediction_id = db.Column(
-        db.Integer, db.ForeignKey('predictions.id', ondelete='SET NULL'), nullable=True
-    )
-    investigation_audit_id = db.Column(
-        db.Integer, db.ForeignKey('evidence_audits.id', ondelete='SET NULL'),
-        nullable=True, unique=True,
-    )
-    submission_count = db.Column(db.Integer, default=1, nullable=False)
-    first_submitted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    last_submitted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-
-    first_prediction = db.relationship(
-        'Prediction', foreign_keys=[first_prediction_id],
-        backref=db.backref('claim_record', uselist=False),
-    )
-    investigation = db.relationship(
-        'EvidenceAudit', foreign_keys=[investigation_audit_id],
-        backref=db.backref('spread_record', uselist=False),
-    )
-
-
-class OTP(db.Model):
-    """One-time password codes for email verification and password reset."""
-    __tablename__ = 'otps'
-
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), nullable=False)
-    code = db.Column(db.String(6), nullable=False)
-    purpose = db.Column(db.String(20), nullable=False)
-    expires_at = db.Column(db.DateTime, nullable=False)
-    used = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-
-class BatchJob(db.Model):
-    """Tracks batch prediction uploads."""
-    __tablename__ = 'batch_jobs'
-
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    filename = db.Column(db.String(255), nullable=False)
-    total_rows = db.Column(db.Integer, default=0)
-    processed_rows = db.Column(db.Integer, default=0)
-    status = db.Column(db.String(20), default='pending')
-    result_path = db.Column(db.String(500), default='')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+from models.user import db
 
 
 class EvidenceAudit(db.Model):
@@ -193,8 +79,6 @@ class EvidenceSource(db.Model):
 
 class FactCheckReview(db.Model):
     """A fact-checker's final decision for one source-evidence audit."""
-    # Keep the legacy prediction-review table untouched. This table belongs to
-    # the newer source-evidence audit workflow.
     __tablename__ = 'evidence_fact_check_reviews'
 
     id = db.Column(db.Integer, primary_key=True)

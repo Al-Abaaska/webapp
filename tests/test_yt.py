@@ -1,5 +1,5 @@
-from gemini_service import extract_main_claim, generate_search_queries, semantic_match
-from youtube_search import search_youtube_with_fallback
+from services.gemini_service import extract_main_claim, generate_search_queries, semantic_match
+from search.youtube_search import search_youtube_with_fallback
 
 text = 'Deg Deg Maraykanka Oo Cirro Bahdil Ku Sameeyay, Xamse Oo Afka Furtay'
 claim = extract_main_claim(text)
