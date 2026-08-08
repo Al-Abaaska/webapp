@@ -52,7 +52,10 @@
                         <strong>{{ current_user.username }}</strong>
                     </div>
                     <a href="{{ url_for('profile.index') }}"><i class="fas fa-id-card"></i> Profile</a>
-                    <a href="{{ url_for('auth.logout') }}" class="danger"><i class="fas fa-right-from-bracket"></i> Logout</a>
+                    <form id="logoutForm" method="POST" action="{{ url_for('auth.logout') }}" style="display:none;"></form>
+                    <button type="button" class="dd-btn danger" onclick="openConfirm('Are you sure you want to log out?', 'logoutForm', 'Log Out')">
+                        <i class="fas fa-right-from-bracket"></i> Logout
+                    </button>
                 </div>
             </div>
             {% endif %}
@@ -99,7 +102,46 @@
         </div>
     </main>
 
+    <!-- CONFIRM MODAL -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-box" style="max-width:420px;">
+            <div class="modal-body" style="padding:32px 28px;text-align:center;">
+                <div id="confirmIcon" style="width:64px;height:64px;border-radius:50%;background:rgba(239,68,68,0.12);color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 18px;">
+                    <i class="fas fa-triangle-exclamation"></i>
+                </div>
+                <h4 id="confirmTitle" style="margin:0 0 8px;font-size:19px;font-weight:800;color:var(--text);">Confirm</h4>
+                <p id="confirmMessage" style="margin:0 0 24px;font-size:14px;color:var(--text-muted);line-height:1.6;"></p>
+                <div style="display:flex;gap:12px;">
+                    <button type="button" class="btn-modern ghost" style="flex:1;" onclick="closeConfirm()">Cancel</button>
+                    <button type="button" class="btn-modern danger" id="confirmYesBtn" style="flex:1;"><i class="fas fa-check"></i> Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+    function openConfirm(message, formId, title) {
+        document.getElementById('confirmMessage').textContent = message;
+        document.getElementById('confirmTitle').textContent = title || 'Confirm';
+        var btn = document.getElementById('confirmYesBtn');
+        btn.onclick = function() {
+            document.getElementById(formId).submit();
+        };
+        document.getElementById('confirmModal').classList.add('show');
+    }
+    function closeConfirm() {
+        document.getElementById('confirmModal').classList.remove('show');
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        var modal = document.getElementById('confirmModal');
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) closeConfirm();
+            });
+        }
+    });
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

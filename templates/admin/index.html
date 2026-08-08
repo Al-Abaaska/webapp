@@ -294,10 +294,8 @@
                             <i class="fas {{ 'fa-lock-open' if u.is_blocked else 'fa-ban' }}"></i> {{ 'Unblock' if u.is_blocked else 'Block' }}
                         </button>
                     </form>
-                    <form method="POST" action="{{ url_for('admin.delete_user', user_id=u.id) }}"
-                          onsubmit="return confirm('Delete user {{ u.username }}? This cannot be undone.');"
-                          style="display:inline;">
-                        <button type="submit" class="btn-modern danger" style="padding:5px 12px;font-size:12px;">
+                    <form method="POST" action="{{ url_for('admin.delete_user', user_id=u.id) }}" id="delUserForm{{ u.id }}" style="display:inline;">
+                        <button type="button" class="btn-modern danger" style="padding:5px 12px;font-size:12px;" onclick="openConfirm('Delete user {{ u.username }}? This cannot be undone. Their predictions and case files will also be removed.', 'delUserForm{{ u.id }}', 'Delete User')">
                             <i class="fas fa-trash"></i>
                         </button>
                     </form>
@@ -379,12 +377,12 @@
             <button class="close-btn" onclick="document.getElementById('createUserModal').classList.remove('show')">&times;</button>
         </div>
         <form method="POST" action="{{ url_for('admin.create_user') }}" style="padding:24px;">
-            <div class="form-group"><label>Username</label><input type="text" name="username" required minlength="3" placeholder="min 3 characters"></div>
-            <div class="form-group"><label>Email</label><input type="email" name="email" required placeholder="user@example.com"></div>
-            <div class="form-group"><label>Password</label><input type="password" name="password" required minlength="6" placeholder="min 6 characters"></div>
+            <div class="form-group"><label>Username</label><input type="text" class="form-input" name="username" required minlength="3" placeholder="min 3 characters"></div>
+            <div class="form-group"><label>Email</label><input type="email" class="form-input" name="email" required placeholder="user@example.com"></div>
+            <div class="form-group"><label>Password</label><input type="password" class="form-input" name="password" required minlength="6" placeholder="min 6 characters"></div>
             <div class="form-group">
                 <label>Role</label>
-                <select name="role" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);font-size:15px;">
+                <select name="role" class="form-input">
                     <option value="user">User</option>
                     <option value="fact_checker">Fact-Checker</option>
                     <option value="admin">Admin</option>
@@ -406,12 +404,12 @@
             <button class="close-btn" onclick="document.getElementById('editUserModal').classList.remove('show')">&times;</button>
         </div>
         <form id="editUserForm" method="POST" style="padding:24px;">
-            <div class="form-group"><label>Username</label><input type="text" id="editUsername" name="username" required minlength="3"></div>
-            <div class="form-group"><label>Email</label><input type="email" id="editEmail" name="email" required></div>
-            <div class="form-group"><label>New Password <small style="color:var(--text-dim);">(leave blank to keep current)</small></label><input type="password" id="editPassword" name="password" minlength="6" placeholder="Leave blank to keep current"></div>
+            <div class="form-group"><label>Username</label><input type="text" class="form-input" id="editUsername" name="username" required minlength="3" placeholder="min 3 characters"></div>
+            <div class="form-group"><label>Email</label><input type="email" class="form-input" id="editEmail" name="email" required placeholder="user@example.com"></div>
+            <div class="form-group"><label>New Password <small style="color:var(--text-dim);font-weight:400;">(leave blank to keep current)</small></label><input type="password" class="form-input" id="editPassword" name="password" minlength="6" placeholder="Leave blank to keep current"></div>
             <div style="display:flex;gap:12px;margin-top:20px;">
                 <button type="button" class="btn-modern ghost" onclick="document.getElementById('editUserModal').classList.remove('show')" style="flex:1;">Cancel</button>
-                <button type="submit" class="btn-modern primary" style="flex:1;"><i class="fas fa-save"></i> Save Changes</button>
+                <button type="submit" class="btn-modern primary" id="editSaveBtn" style="flex:1;"><i class="fas fa-save"></i> Save Changes</button>
             </div>
         </form>
     </div>
@@ -434,5 +432,11 @@ function openEditModal(id, username, email) {
     document.getElementById('editUserForm').action = '/admin/edit_user/' + id;
     document.getElementById('editUserModal').classList.add('show');
 }
+document.getElementById('editUserForm').addEventListener('submit', function() {
+    var btn = document.getElementById('editSaveBtn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+});
 </script>
 {% endblock %}

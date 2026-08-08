@@ -47,8 +47,8 @@
     <span style="color:var(--text-muted);font-size:14px;">{{ total }} prediction{{ 's' if total!=1 else '' }}</span>
     <div style="display:flex;gap:8px;align-items:center;">
         <span id="selCount" style="font-size:13px;color:var(--primary);font-weight:600;display:none;">0 selected</span>
-        <button type="button" class="btn-modern danger" id="delSelBtn" style="display:none;padding:8px 16px;font-size:13px;" onclick="document.getElementById('delSelForm').submit();"><i class="fas fa-trash"></i> Delete Selected</button>
-        <button type="button" class="btn-modern danger" style="padding:8px 16px;font-size:13px;" onclick="if(confirm('Delete ALL {{ total }} predictions?'))document.getElementById('delAllForm').submit();"><i class="fas fa-trash"></i> Delete All</button>
+        <button type="button" class="btn-modern danger" id="delSelBtn" style="display:none;padding:8px 16px;font-size:13px;" onclick="openConfirm('Delete the ' + document.querySelectorAll('.row-cb:checked').length + ' selected predictions? This cannot be undone.', 'delSelForm', 'Delete Selected')"><i class="fas fa-trash"></i> Delete Selected</button>
+        <button type="button" class="btn-modern danger" style="padding:8px 16px;font-size:13px;" onclick="openConfirm('Delete ALL {{ total }} predictions? This cannot be undone.', 'delAllForm', 'Delete All')"><i class="fas fa-trash"></i> Delete All</button>
     </div>
 </div>
 
@@ -82,8 +82,8 @@
                     </td>
                     <td style="white-space:nowrap;">{{ p.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                     <td>
-                        <form method="POST" action="{{ url_for('history.delete_prediction',pred_id=p.id,page=page,model=model_filter,label=label_filter,search=search) }}" onsubmit="return confirm('Delete?');" style="display:inline;">
-                            <button type="submit" style="background:none;border:none;color:var(--danger);cursor:pointer;padding:4px;" title="Delete"><i class="fas fa-trash"></i></button>
+                        <form method="POST" action="{{ url_for('history.delete_prediction',pred_id=p.id,page=page,model=model_filter,label=label_filter,search=search) }}" id="delPredForm{{ p.id }}" style="display:inline;">
+                            <button type="button" style="background:none;border:none;color:var(--danger);cursor:pointer;padding:4px;" title="Delete" onclick="openConfirm('Delete prediction #{{ p.id }}? This cannot be undone.', 'delPredForm{{ p.id }}', 'Delete Prediction')"><i class="fas fa-trash"></i></button>
                         </form>
                     </td>
                 </tr>

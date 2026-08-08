@@ -71,6 +71,11 @@ table tbody tr:hover { background: var(--table-hover); }
 .text-truncate { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .form-label { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.form-group .form-input { width: 100%; }
+.form-group select.form-input { padding: 11px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font-size: 15px; }
+.form-group select.form-input option { background: var(--select-bg); color: var(--input-color); }
 .form-input {
     width: 100%; padding: 11px 16px; border: 1px solid var(--border);
     border-radius: var(--radius-sm); font-size: 14px; font-family: inherit;

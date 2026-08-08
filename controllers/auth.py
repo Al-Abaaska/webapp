@@ -171,7 +171,7 @@ def reset_password():
         return redirect(url_for('auth.login'))
     return render_template('auth/reset_password.html', email=email)
 
-@auth_bp.route('/logout')
+@auth_bp.route('/logout', methods=['POST'])
 @login_required
 def logout():
     logout_user()

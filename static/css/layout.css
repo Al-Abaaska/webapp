@@ -98,5 +98,15 @@
 .user-dropdown-menu a:hover { background:rgba(99,102,241,0.1); color:var(--primary-light); }
 .user-dropdown-menu a.danger:hover { background:rgba(239,68,68,0.1); color:var(--danger); }
 
+.user-dropdown-menu .dd-btn {
+    display:flex; align-items:center; gap:10px;
+    width:100%; padding:10px 14px; color:var(--text); text-decoration:none;
+    background:none; border:none; cursor:pointer; text-align:left;
+    border-radius:var(--radius-sm); font-size:14px; font-weight:500; font-family:inherit;
+    transition:all 0.15s;
+}
+.user-dropdown-menu .dd-btn:hover { background:rgba(99,102,241,0.1); color:var(--primary-light); }
+.user-dropdown-menu .dd-btn.danger:hover { background:rgba(239,68,68,0.1); color:var(--danger); }
+
 .main-area { margin-top: 60px; min-height:calc(100vh - 60px); }
 .content-wrap { padding:28px 32px; max-width:1400px; margin:0 auto; min-width:0; }
