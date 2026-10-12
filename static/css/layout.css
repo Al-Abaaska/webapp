@@ -110,3 +110,42 @@
 
 .main-area { margin-top: 60px; min-height:calc(100vh - 60px); }
 .content-wrap { padding:28px 32px; max-width:1400px; margin:0 auto; min-width:0; }
+
+/* App shell above the fixed aurora background */
+.main-area { position: relative; z-index: 1; }
+
+/* ═══ LAYOUT MAGIC ═══ */
+
+/* Sidebar links: icon nudge + glow on hover */
+.sidebar-nav a { position: relative; overflow: hidden; }
+.sidebar-nav a::after {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: linear-gradient(180deg, var(--primary-light), #8b5cf6);
+    border-radius: 0 3px 3px 0;
+    transform: scaleY(0); transform-origin: center;
+    transition: transform 0.25s ease; opacity: 0.85;
+}
+.sidebar-nav a:hover::after, .sidebar-nav a.active::after { transform: scaleY(1); }
+.sidebar-nav a i { transition: transform 0.25s ease; }
+.sidebar-nav a:hover i { transform: translateX(3px); }
+.sidebar-nav a.active { box-shadow: inset 0 0 20px rgba(99,102,241,0.08); }
+
+/* Topnav center links: animated underline */
+.topnav-center a { position: relative; }
+.topnav-center a::after {
+    content: ''; position: absolute; left: 14px; right: 14px; bottom: 4px; height: 2px;
+    background: linear-gradient(90deg, var(--primary-light), #8b5cf6);
+    border-radius: 2px; transform: scaleX(0); transform-origin: left;
+    transition: transform 0.25s cubic-bezier(0.16,1,0.3,1);
+}
+.topnav-center a:hover::after, .topnav-center a.active::after { transform: scaleX(1); }
+.topnav-center a i { transition: transform 0.25s ease; }
+.topnav-center a:hover i { transform: translateY(-1px); }
+
+/* User toggle subtle lift */
+.user-toggle { transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease; }
+.user-toggle:hover { transform: translateY(-1px); }
+
+/* Sidebar header logo pulse */
+.sidebar-header .logo { transition: box-shadow 0.3s ease, transform 0.3s ease; }
+.sidebar-header .logo:hover { box-shadow: 0 0 32px rgba(99,102,241,0.6); transform: scale(1.05); }

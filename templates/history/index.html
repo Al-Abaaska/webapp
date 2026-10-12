@@ -1,10 +1,13 @@
 {% extends "_base/base.html" %}
-{% block title %}History - Somali MD{% endblock %}
+{% block title %}History - PMD{% endblock %}
 
 {% block content %}
-<div style="margin-bottom:32px;">
-    <h1 style="font-size:28px;font-weight:800;color:var(--text);margin-bottom:6px;">Prediction History</h1>
-    <p style="color:var(--text-muted);font-size:15px;">Browse, filter, and manage your past predictions.</p>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:32px;">
+    <div>
+        <h1 style="font-size:28px;font-weight:800;color:var(--text);margin-bottom:6px;">Prediction History</h1>
+        <p style="color:var(--text-muted);font-size:15px;">Browse and export your AI prediction history.</p>
+    </div>
+    <a href="{{ url_for('history.cases') }}" class="btn-modern primary"><i class="fas fa-route"></i> Track fact-check cases</a>
 </div>
 
 <div class="card-modern" style="margin-bottom:20px;">
@@ -45,29 +48,19 @@
 {% if predictions.items %}
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
     <span style="color:var(--text-muted);font-size:14px;">{{ total }} prediction{{ 's' if total!=1 else '' }}</span>
-    <div style="display:flex;gap:8px;align-items:center;">
-        <span id="selCount" style="font-size:13px;color:var(--primary);font-weight:600;display:none;">0 selected</span>
-        <button type="button" class="btn-modern danger" id="delSelBtn" style="display:none;padding:8px 16px;font-size:13px;" onclick="openConfirm('Delete the ' + document.querySelectorAll('.row-cb:checked').length + ' selected predictions? This cannot be undone.', 'delSelForm', 'Delete Selected')"><i class="fas fa-trash"></i> Delete Selected</button>
-        <button type="button" class="btn-modern danger" style="padding:8px 16px;font-size:13px;" onclick="openConfirm('Delete ALL {{ total }} predictions? This cannot be undone.', 'delAllForm', 'Delete All')"><i class="fas fa-trash"></i> Delete All</button>
-    </div>
 </div>
-
-<form id="delSelForm" method="POST" action="{{ url_for('history.delete_selected',page=page,model=model_filter,label=label_filter,search=search) }}" style="display:none;"><div id="selIds"></div></form>
-<form id="delAllForm" method="POST" action="{{ url_for('history.delete_all') }}" style="display:none;"></form>
 
 <div class="card-modern">
     <div class="table-container">
         <table>
             <thead>
                 <tr>
-                    <th style="width:40px;"><input type="checkbox" id="selAll" style="width:16px;height:16px;cursor:pointer;"></th>
-                    <th>ID</th><th>Text</th><th>Prediction</th><th>Confidence</th><th>Model</th><th>Evidence</th><th>Date</th><th style="width:50px;"></th>
+                    <th>ID</th><th>Text</th><th>Prediction</th><th>Confidence</th><th>Model</th><th>Evidence</th><th>Date</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in predictions.items %}
                 <tr>
-                    <td><input type="checkbox" class="row-cb" value="{{ p.id }}" style="width:16px;height:16px;cursor:pointer;"></td>
                     <td style="font-weight:600;color:var(--text-dim);">#{{ p.id }}</td>
                     <td><span class="text-truncate">{{ p.text[:50] }}{% if p.text|length>50 %}...{% endif %}</span></td>
                     <td><span class="badge-modern {{ p.prediction|lower }}">{{ p.prediction }}</span></td>
@@ -76,16 +69,11 @@
                     <td>
                         {% if p.evidence_audits %}
                         {% set latest_audit = p.evidence_audits[-1] %}
-                        <a href="{{ url_for('history.evidence_detail',audit_id=latest_audit.id) }}" style="color:var(--primary);font-size:12px;font-weight:600;text-decoration:none;">View audit</a>
-                        {% if latest_audit.fact_check_review %}<span title="Fact-checker reviewed" style="color:var(--success);margin-left:5px;"><i class="fas fa-user-check"></i></span>{% else %}<span title="Awaiting fact-checker review" style="color:var(--warning);margin-left:5px;"><i class="fas fa-clock"></i></span>{% endif %}
+                        <a href="{{ url_for('history.evidence_detail',audit_id=latest_audit.id) }}" style="color:var(--primary);font-size:12px;font-weight:700;text-decoration:none;"><i class="fas fa-route"></i> Track case</a>
+                        {% if latest_audit.fact_check_review %}<span title="Fact-checker reviewed" style="color:var(--success);margin-left:5px;"><i class="fas fa-user-check"></i></span>{% elif not latest_audit.requires_fact_check %}<span title="Reliable case completed without human review" style="color:var(--success);margin-left:5px;"><i class="fas fa-circle-check"></i></span>{% else %}<span title="Awaiting fact-checker review" style="color:var(--warning);margin-left:5px;"><i class="fas fa-clock"></i></span>{% endif %}
                         {% else %}<span style="color:var(--text-muted);font-size:12px;">Not run</span>{% endif %}
                     </td>
-                    <td style="white-space:nowrap;">{{ p.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                    <td>
-                        <form method="POST" action="{{ url_for('history.delete_prediction',pred_id=p.id,page=page,model=model_filter,label=label_filter,search=search) }}" id="delPredForm{{ p.id }}" style="display:inline;">
-                            <button type="button" style="background:none;border:none;color:var(--danger);cursor:pointer;padding:4px;" title="Delete" onclick="openConfirm('Delete prediction #{{ p.id }}? This cannot be undone.', 'delPredForm{{ p.id }}', 'Delete Prediction')"><i class="fas fa-trash"></i></button>
-                        </form>
-                    </td>
+                    <td style="white-space:nowrap;">{{ p.created_at|somali_time }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -114,12 +102,4 @@
 <div class="card-modern"><div class="empty-state"><i class="fas fa-inbox"></i><h3>No predictions found</h3><p>Try adjusting filters or make some predictions.</p></div></div>
 {% endif %}
 
-<script>
-document.addEventListener('DOMContentLoaded',function(){
-    var all=document.getElementById('selAll'),cbs=document.querySelectorAll('.row-cb'),cnt=document.getElementById('selCount'),btn=document.getElementById('delSelBtn'),box=document.getElementById('selIds');
-    function upd(){var c=document.querySelectorAll('.row-cb:checked'),n=c.length;cnt.textContent=n+' selected';cnt.style.display=n>0?'inline':'none';btn.style.display=n>0?'inline-flex':'none';box.innerHTML='';c.forEach(function(x){var i=document.createElement('input');i.type='hidden';i.name='selected_ids';i.value=x.value;box.appendChild(i)})}
-    if(all)all.addEventListener('change',function(){cbs.forEach(function(c){c.checked=all.checked});upd()});
-    cbs.forEach(function(c){c.addEventListener('change',upd)});
-});
-</script>
 {% endblock %}

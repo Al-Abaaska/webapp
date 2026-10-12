@@ -3,38 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Somali MD{% endblock %}</title>
+    <title>{% block title %}PMD{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/pmd-favicon.svg') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}">
     {% block extra_css %}{% endblock %}
     <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 </head>
 <body>
+    <div class="aurora-bg" aria-hidden="true">
+        <div class="aurora-blob b1"></div>
+        <div class="aurora-blob b2"></div>
+        <div class="aurora-blob b3"></div>
+    </div>
 
     <!-- TOP NAV -->
     <nav class="topnav" id="topnav">
         <div class="topnav-left">
-            <button class="hamburger" id="hamburgerBtn"><i class="fas fa-bars"></i></button>
+            <button class="hamburger" id="hamburgerBtn" type="button" aria-label="Open page menu" aria-controls="sidebar" aria-expanded="false"><i class="fas fa-bars"></i></button>
             <a href="{{ url_for('main.index') }}" class="topnav-brand">
                 <div class="logo-sm"><i class="fas fa-shield-halved"></i></div>
-                <span>Somali MD</span>
+                <span>PMD</span>
             </a>
         </div>
         <div class="topnav-center">
             <a href="{{ url_for('main.dashboard') }}" class="{% if request.endpoint in ('main.dashboard', 'admin.index') %}active{% endif %}"><i class="fas fa-gauge-high"></i> Dashboard</a>
             <a href="{{ url_for('predict.index') }}" class="{% if request.endpoint == 'predict.index' %}active{% endif %}"><i class="fas fa-wand-magic-sparkles"></i> Predict</a>
             <a href="{{ url_for('batch.index') }}" class="{% if request.endpoint == 'batch.index' %}active{% endif %}"><i class="fas fa-file-arrow-up"></i> File Upload</a>
+            <a href="{{ url_for('history.cases') }}" class="{% if request.endpoint in ('history.cases', 'history.evidence_detail') %}active{% endif %}"><i class="fas fa-route"></i> Track Claims</a>
             <a href="{{ url_for('history.index') }}" class="{% if request.endpoint == 'history.index' %}active{% endif %}"><i class="fas fa-clock-rotate-left"></i> History</a>
-            <a href="{{ url_for('models_bp.index') }}" class="{% if request.endpoint == 'models_bp.index' %}active{% endif %}"><i class="fas fa-chart-column"></i> Models</a>
-            {% if current_user.is_authenticated and current_user.can_fact_check %}
+            {% if current_user.is_authenticated and current_user.is_fact_checker %}
             <a href="{{ url_for('fact_checker.index') }}" class="{% if request.endpoint == 'fact_checker.index' %}active{% endif %}"><i class="fas fa-clipboard-check"></i> Reviews</a>
+            {% endif %}
+            {% if is_primary_admin_session %}
+            <a href="{{ url_for('admin.reports') }}" class="{% if request.endpoint == 'admin.reports' %}active{% endif %}"><i class="fas fa-chart-column"></i> Reports</a>
             {% endif %}
         </div>
         <div class="topnav-right">
+            {% if current_user.is_authenticated %}
+            <details class="notification-menu">
+                <summary title="Notifications" aria-label="Notifications{% if unread_notification_count %}, {{ unread_notification_count }} unread{% endif %}">
+                    <i class="fas fa-bell"></i>
+                    {% if unread_notification_count %}<span class="notification-badge">{{ '99+' if unread_notification_count > 99 else unread_notification_count }}</span>{% endif %}
+                </summary>
+                <div class="notification-popover">
+                    <div class="notification-popover-head"><div><span>CASE UPDATES</span><strong>Notifications</strong></div>{% if unread_notification_count %}<b>{{ unread_notification_count }} new</b>{% endif %}</div>
+                    <div class="notification-popover-list">
+                        {% for notification in recent_notifications %}
+                        <form method="POST" action="{{ url_for('notifications.open_notification', notification_id=notification.id) }}">
+                            <button class="notification-popover-item" type="submit">
+                                <span class="notification-item-icon"><i class="fas fa-circle-check"></i></span>
+                                <span><strong>{{ notification.title }}</strong><small>{{ notification.message }}</small><time>{{ notification.created_at|somali_time }}</time></span>
+                            </button>
+                        </form>
+                        {% else %}
+                        <div class="notification-popover-empty"><i class="fas fa-bell-slash"></i><span>You are all caught up.</span></div>
+                        {% endfor %}
+                    </div>
+                    <a class="notification-popover-footer" href="{{ url_for('notifications.index') }}">View all notifications <i class="fas fa-arrow-right"></i></a>
+                </div>
+            </details>
+            {% endif %}
             <button class="theme-toggle" type="button" title="Toggle theme">
                 <i class="fas fa-sun icon-sun"></i>
                 <i class="fas fa-moon icon-moon"></i>
@@ -63,20 +98,23 @@
     </nav>
 
     <!-- SIDEBAR (mobile) -->
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
-    <aside class="sidebar" id="sidebar">
+    <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
+    <aside class="sidebar" id="sidebar" aria-label="Page menu">
         <div class="sidebar-header">
             <div class="logo"><i class="fas fa-shield-halved"></i></div>
-            <div><h4>Somali MD</h4><p>Misinformation Detector</p></div>
+            <div><h4>PMD</h4><p>Political Misinformation Detection</p></div>
         </div>
         <ul class="sidebar-nav">
             <li><a href="{{ url_for('main.dashboard') }}" class="{% if request.endpoint in ('main.dashboard', 'admin.index') %}active{% endif %}"><i class="fas fa-gauge-high"></i><span>Dashboard</span></a></li>
             <li><a href="{{ url_for('predict.index') }}" class="{% if request.endpoint == 'predict.index' %}active{% endif %}"><i class="fas fa-wand-magic-sparkles"></i><span>Predict</span></a></li>
             <li><a href="{{ url_for('batch.index') }}" class="{% if request.endpoint == 'batch.index' %}active{% endif %}"><i class="fas fa-file-arrow-up"></i><span>File Upload</span></a></li>
+            <li><a href="{{ url_for('history.cases') }}" class="{% if request.endpoint in ('history.cases', 'history.evidence_detail') %}active{% endif %}"><i class="fas fa-route"></i><span>Track Claims</span></a></li>
             <li><a href="{{ url_for('history.index') }}" class="{% if request.endpoint == 'history.index' %}active{% endif %}"><i class="fas fa-clock-rotate-left"></i><span>History</span></a></li>
-            <li><a href="{{ url_for('models_bp.index') }}" class="{% if request.endpoint == 'models_bp.index' %}active{% endif %}"><i class="fas fa-chart-column"></i><span>Models</span></a></li>
-            {% if current_user.is_authenticated and current_user.can_fact_check %}
+            {% if current_user.is_authenticated and current_user.is_fact_checker %}
             <li><a href="{{ url_for('fact_checker.index') }}" class="{% if request.endpoint == 'fact_checker.index' %}active{% endif %}"><i class="fas fa-clipboard-check"></i><span>Reviews</span></a></li>
+            {% endif %}
+            {% if is_primary_admin_session %}
+            <li><a href="{{ url_for('admin.reports') }}" class="{% if request.endpoint == 'admin.reports' %}active{% endif %}"><i class="fas fa-chart-column"></i><span>Reports</span></a></li>
             {% endif %}
         </ul>
     </aside>
@@ -120,12 +158,21 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/progress.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/magic.js') }}"></script>
     <script>
     function openConfirm(message, formId, title) {
         document.getElementById('confirmMessage').textContent = message;
         document.getElementById('confirmTitle').textContent = title || 'Confirm';
         var btn = document.getElementById('confirmYesBtn');
         btn.onclick = function() {
+            if (window.PMDProgress) {
+                window.PMDProgress.start({
+                    button: btn,
+                    label: window.PMDProgress.actionLabel(btn, 'Processing...'),
+                    lockButton: true
+                });
+            }
             document.getElementById(formId).submit();
         };
         document.getElementById('confirmModal').classList.add('show');

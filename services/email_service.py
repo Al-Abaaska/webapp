@@ -1,6 +1,7 @@
 import random
 import smtplib
 import time
+from html import escape
 from datetime import datetime, timedelta
 
 from flask_mail import Message
@@ -61,7 +62,7 @@ def send_otp_email(user_email, username, otp_code, purpose):
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#f8fafc;border-radius:16px;overflow:hidden;">
         <div style="background:linear-gradient(135deg,#6366f1,#4f46e5);padding:40px 30px;text-align:center;">
-            <h1 style="color:#fff;font-size:24px;margin:0;">Somali Misinformation Detector</h1>
+            <h1 style="color:#fff;font-size:24px;margin:0;">Political Misinformation Detection</h1>
             <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;">{heading}</p>
         </div>
         <div style="padding:40px 30px;">
@@ -75,13 +76,13 @@ def send_otp_email(user_email, username, otp_code, purpose):
             <p style="color:#94a3b8;font-size:13px;margin:20px 0 0;">{footer}</p>
         </div>
         <div style="background:#0f172a;padding:20px 30px;text-align:center;">
-            <p style="color:rgba(255,255,255,0.5);font-size:12px;margin:0;">JUST University - Somali Misinformation Detection Project</p>
+            <p style="color:rgba(255,255,255,0.5);font-size:12px;margin:0;">JUST University - Political Misinformation Detection Project</p>
         </div>
     </div>
     """
 
     msg = Message(
-        subject=f'{title} - Somali Misinformation Detector',
+        subject=f'{title} - Political Misinformation Detection',
         recipients=[user_email],
         html=html,
     )
@@ -98,5 +99,76 @@ def send_otp_email(user_email, username, otp_code, purpose):
         # Gmail occasionally closes or times out a fresh SMTP connection.
         # Retry once with a new connection; permanent authentication and
         # recipient errors still fail immediately.
+        time.sleep(1)
+        mail.send(msg)
+
+
+def send_fact_checker_application_email(
+    user_email, username, approved, administrator_note=''
+):
+    """Email the applicant after an administrator reviews the application."""
+    safe_username = escape(username)
+    safe_note = escape(administrator_note or '')
+    if approved:
+        subject = 'Fact-Checker Application Approved - PMD'
+        heading = 'Application Approved'
+        status_color = '#059669'
+        status_icon = '&#10003;'
+        description = (
+            'Your submitted credentials have been approved. You can now sign '
+            'in to PMD and access the fact-checker workspace.'
+        )
+    else:
+        subject = 'Fact-Checker Application Decision - PMD'
+        heading = 'Application Not Approved'
+        status_color = '#dc2626'
+        status_icon = '&#10005;'
+        description = (
+            'Your fact-checker application was reviewed but was not approved. '
+            'Your PMD account remains available as a normal user account.'
+        )
+
+    note_html = ''
+    if safe_note:
+        note_html = f"""
+        <div style="margin-top:22px;padding:16px 18px;background:#f1f5f9;border-radius:10px;">
+            <strong style="display:block;color:#334155;font-size:13px;margin-bottom:6px;">Administrator note</strong>
+            <p style="color:#64748b;font-size:14px;line-height:1.6;margin:0;">{safe_note}</p>
+        </div>
+        """
+
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#f8fafc;border-radius:16px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#6366f1,#4f46e5);padding:36px 30px;text-align:center;">
+            <h1 style="color:#fff;font-size:23px;margin:0;">Political Misinformation Detection</h1>
+            <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;">Fact-Checker Application</p>
+        </div>
+        <div style="padding:38px 30px;">
+            <div style="width:54px;height:54px;margin:0 auto 18px;border-radius:50%;background:{status_color};color:#fff;font-size:27px;line-height:54px;text-align:center;">{status_icon}</div>
+            <h2 style="color:#0f172a;font-size:22px;text-align:center;margin:0 0 18px;">{heading}</h2>
+            <p style="color:#64748b;font-size:15px;line-height:1.65;margin:0;">Hi {safe_username}, {description}</p>
+            {note_html}
+        </div>
+        <div style="background:#0f172a;padding:20px 30px;text-align:center;">
+            <p style="color:rgba(255,255,255,0.5);font-size:12px;margin:0;">JUST University - Political Misinformation Detection Project</p>
+        </div>
+    </div>
+    """
+
+    msg = Message(
+        subject=subject,
+        recipients=[user_email],
+        html=html,
+    )
+    retryable_errors = (
+        smtplib.SMTPServerDisconnected,
+        smtplib.SMTPConnectError,
+        smtplib.SMTPDataError,
+        TimeoutError,
+        OSError,
+    )
+    try:
+        mail.send(msg)
+    except retryable_errors:
         time.sleep(1)
         mail.send(msg)

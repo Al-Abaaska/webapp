@@ -1,5 +1,5 @@
 {% extends "_base/auth_base.html" %}
-{% block title %}Register - Somali MD{% endblock %}
+{% block title %}Register - PMD{% endblock %}
 
 {% block auth_content %}
 <div class="auth-card">
@@ -7,11 +7,11 @@
         <i class="fas fa-user-plus"></i>
     </div>
     <h2 class="auth-title">Create Account</h2>
-    <p class="auth-subtitle">Join the Somali Misinformation Detector</p>
+    <p class="auth-subtitle">Join Political Misinformation Detection</p>
 
     <div class="auth-steps">
         <div class="auth-step active">
-            <span class="step-num">1</span> Account
+            <span class="step-num">1</span> Account &amp; Role
         </div>
         <div class="auth-step-line"></div>
         <div class="auth-step">
@@ -19,21 +19,29 @@
         </div>
         <div class="auth-step-line"></div>
         <div class="auth-step">
-            <span class="step-num">3</span> Login
+            <span class="step-num">3</span> Review &amp; Login
         </div>
     </div>
 
-    <form method="POST" action="{{ url_for('auth.register') }}">
+    <form method="POST" action="{{ url_for('auth.register') }}" enctype="multipart/form-data">
+        <div style="margin-bottom:18px;">
+            <label class="form-label" for="account_type">Register as</label>
+            <select class="form-input" id="account_type" name="account_type" required>
+                <option value="user" {% if request.form.get('account_type', 'user') == 'user' %}selected{% endif %}>User</option>
+                <option value="fact_checker" {% if request.form.get('account_type') == 'fact_checker' %}selected{% endif %}>Fact-Checker Applicant</option>
+            </select>
+        </div>
+
         <div style="margin-bottom:18px;">
             <label class="form-label" for="username">Username</label>
             <input type="text" class="form-input" id="username" name="username"
-                   placeholder="Choose a username" required>
+                   value="{{ request.form.get('username', '') }}" placeholder="Choose a username" required>
         </div>
 
         <div style="margin-bottom:18px;">
             <label class="form-label" for="email">Email</label>
             <input type="email" class="form-input" id="email" name="email"
-                   placeholder="Enter your email" required>
+                   value="{{ request.form.get('email', '') }}" placeholder="Enter your email" required>
         </div>
 
         <div style="margin-bottom:18px;">
@@ -46,6 +54,33 @@
             <label class="form-label" for="confirm_password">Confirm Password</label>
             <input type="password" class="form-input" id="confirm_password" name="confirm_password"
                    placeholder="Confirm your password" required>
+        </div>
+
+        <div id="factCheckerRequirements" style="display:none;margin:4px 0 24px;padding:18px;border:1px solid var(--border);border-radius:14px;background:var(--input-bg);">
+            <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:16px;">
+                <i class="fas fa-shield-check" style="color:var(--primary);margin-top:3px;"></i>
+                <div>
+                    <strong style="display:block;color:var(--text);font-size:14px;">Fact-checker verification requirements</strong>
+                </div>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label class="form-label" for="organization">Company or organization</label>
+                <input type="text" class="form-input" id="organization" name="organization" value="{{ request.form.get('organization', '') }}" placeholder="Newsroom, fact-checking group, or employer">
+            </div>
+            <div style="margin-bottom:16px;">
+                <label class="form-label" for="professional_id">Professional or employee ID</label>
+                <input type="text" class="form-input" id="professional_id" name="professional_id" value="{{ request.form.get('professional_id', '') }}" placeholder="Enter the ID number shown in your document">
+            </div>
+            <div style="margin-bottom:16px;">
+                <label class="form-label" for="id_document">Identity or employment document</label>
+                <input type="file" class="form-input" id="id_document" name="id_document" accept=".pdf,.png,.jpg,.jpeg">
+                <small style="display:block;margin-top:6px;color:var(--text-muted);">PDF, PNG, JPG, or JPEG; maximum 8 MB.</small>
+            </div>
+            <div>
+                <label class="form-label" for="certificates">Professional certificates</label>
+                <input type="file" class="form-input" id="certificates" name="certificates" accept=".pdf,.png,.jpg,.jpeg" multiple>
+                <small style="display:block;margin-top:6px;color:var(--text-muted);">Upload one to five files. Documents are visible only to administrators.</small>
+            </div>
         </div>
 
         <button type="submit" class="btn-modern primary full" id="registerBtn">
@@ -64,6 +99,16 @@
 
 {% block extra_js %}
 <script>
+function updateFactCheckerRequirements() {
+    var isApplicant = document.getElementById('account_type').value === 'fact_checker';
+    var panel = document.getElementById('factCheckerRequirements');
+    panel.style.display = isApplicant ? 'block' : 'none';
+    ['organization', 'professional_id', 'id_document', 'certificates'].forEach(function(id) {
+        document.getElementById(id).required = isApplicant;
+    });
+}
+document.getElementById('account_type').addEventListener('change', updateFactCheckerRequirements);
+updateFactCheckerRequirements();
 document.querySelector('form').addEventListener('submit', function() {
     var btn = document.getElementById('registerBtn');
     btn.classList.add('loading');

@@ -1,0 +1,145 @@
+{% extends "_base/base.html" %}
+{% block title %}{{ profile.source_name }} - Source Intelligence - PMD{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:24px;">
+    <a href="{{ back_url }}" style="color:var(--primary);font-size:13px;text-decoration:none;"><i class="fas fa-arrow-left"></i> Back to evidence audit</a>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-top:12px;">
+        <div>
+            <p style="color:var(--primary);font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px;"><i class="fas fa-building-shield"></i> Source Intelligence Profile</p>
+            <h1 style="font-size:30px;font-weight:800;color:var(--text);margin:0 0 7px;">{{ profile.source_name }}</h1>
+            <p style="color:var(--text-muted);font-size:14px;">{{ profile.platform }} &middot; {{ profile.locator_label }}: {{ profile.locator_value }}</p>
+        </div>
+        {% if profile.homepage %}
+        <a href="{{ profile.homepage }}" target="_blank" rel="noopener" class="btn-modern" style="text-decoration:none;"><i class="fas fa-arrow-up-right-from-square"></i> Open source</a>
+        {% endif %}
+    </div>
+</div>
+
+<div style="padding:14px 18px;border:1px solid rgba(245,158,11,.28);background:rgba(245,158,11,.08);border-radius:12px;margin-bottom:22px;color:var(--text-muted);font-size:13px;line-height:1.6;">
+    <i class="fas fa-triangle-exclamation" style="color:var(--warning);margin-right:7px;"></i>
+    AI classifications describe claims where this source appeared as evidence. They do not prove that the source published false information. Human decisions are reported separately below.
+</div>
+
+<div class="stat-grid" style="margin-bottom:22px;">
+    <div class="stat-card">
+        <div class="stat-icon indigo"><i class="fas fa-layer-group"></i></div>
+        <div class="stat-value">{{ profile.platform }}</div>
+        <div class="stat-label">Platform</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon blue"><i class="fas fa-calendar-plus"></i></div>
+        <div class="stat-value" style="font-size:17px;">{{ profile.first_seen|somali_time('%b %d, %Y') if profile.first_seen else '—' }}</div>
+        <div class="stat-label">First Seen</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="fas fa-calendar-check"></i></div>
+        <div class="stat-value" style="font-size:17px;">{{ profile.last_seen|somali_time('%b %d, %Y') if profile.last_seen else '—' }}</div>
+        <div class="stat-label">Last Seen</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon yellow"><i class="fas fa-file-circle-check"></i></div>
+        <div class="stat-value">{{ profile.total_claims }}</div>
+        <div class="stat-label">Total Claims Found</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon red"><i class="fas fa-magnifying-glass-chart"></i></div>
+        <div class="stat-value">{{ profile.total_appearances }}</div>
+        <div class="stat-label">Evidence Appearances</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="fas fa-user-check"></i></div>
+        <div class="stat-value">{{ profile.human_reviewed_claims }}</div>
+        <div class="stat-label">Human-Reviewed Claims</div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:18px;margin-bottom:22px;">
+    <section class="card-modern">
+        <div class="card-header-modern">
+            <h5><i class="fas fa-robot" style="color:var(--primary);"></i> AI Classification History</h5>
+            <span class="text-muted-modern">{{ profile.total_claims }} unique claims</span>
+        </div>
+        <div class="card-body-modern">
+            {% for label, count in profile.ai_counts.items() %}
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;{% if not loop.first %}border-top:1px solid var(--border);{% endif %}">
+                <span class="badge-modern {{ label|lower }}">{{ label }}</span>
+                <strong style="font-size:22px;color:var(--text);">{{ count }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="card-modern">
+        <div class="card-header-modern">
+            <h5><i class="fas fa-user-shield" style="color:var(--success);"></i> Fact-Checker Verified History</h5>
+            <span class="text-muted-modern">{{ profile.human_reviewed_claims }} reviewed</span>
+        </div>
+        <div class="card-body-modern">
+            {% for decision, count in profile.human_counts.items() %}
+            {% set decision_class = 'reliable' if decision == 'Confirmed Reliable' else ('misinformation' if decision == 'Confirmed Misinformation' else 'misleading') %}
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;{% if not loop.first %}border-top:1px solid var(--border);{% endif %}">
+                <span class="badge-modern {{ decision_class }}" style="white-space:normal;line-height:1.35;">{{ decision }}</span>
+                <strong style="font-size:20px;color:var(--text);">{{ count }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+
+<section class="card-modern">
+    <div class="card-header-modern">
+        <h5><i class="fas fa-clock-rotate-left" style="color:var(--primary);"></i> Recent Claims</h5>
+        <span class="text-muted-modern">Click a row to open the complete evidence audit</span>
+    </div>
+    {% if profile.recent_claims %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Claim</th>
+                    <th>AI Prediction</th>
+                    <th>Confidence</th>
+                    <th>Human Verdict</th>
+                    <th>Date</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for claim in profile.recent_claims %}
+                <tr role="link" tabindex="0" data-url="{{ claim.detail_url }}" onclick="window.location.href=this.dataset.url" onkeydown="if(event.key==='Enter'){window.location.href=this.dataset.url}" style="cursor:pointer;">
+                    <td style="min-width:260px;max-width:460px;">
+                        <a href="{{ claim.detail_url }}" style="font-weight:650;color:var(--text);text-decoration:none;line-height:1.45;">{{ claim.claim|truncate(105) }}</a>
+                    </td>
+                    <td><span class="badge-modern {{ claim.ai_prediction|lower }}">{{ claim.ai_prediction }}</span></td>
+                    <td style="white-space:nowrap;font-weight:700;color:var(--text);">{{ "%.1f%%"|format(claim.confidence) if claim.confidence is not none else '—' }}</td>
+                    <td>
+                        {% if claim.human_verdict %}
+                        {% set verdict_class = 'reliable' if claim.human_verdict == 'Confirmed Reliable' else ('misinformation' if claim.human_verdict == 'Confirmed Misinformation' else 'misleading') %}
+                        <span class="badge-modern {{ verdict_class }}" style="white-space:normal;line-height:1.35;">{{ claim.human_verdict }}</span>
+                        {% else %}
+                        <span style="color:var(--text-muted);font-size:12px;white-space:nowrap;"><i class="fas fa-clock"></i> Awaiting Review</span>
+                        {% endif %}
+                    </td>
+                    <td style="white-space:nowrap;color:var(--text-muted);">{{ claim.date|somali_time('%b %d, %Y') }}</td>
+                    <td><i class="fas fa-chevron-right" style="color:var(--primary);"></i></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card-body-modern"><p style="color:var(--text-muted);">No visible claims were found for this source.</p></div>
+    {% endif %}
+</section>
+
+<p style="font-size:11px;color:var(--text-dim);margin-top:14px;line-height:1.6;">
+    {% if current_user.is_admin %}
+    Profile statistics include all evidence cases in the system.
+    {% elif current_user.can_fact_check %}
+    Profile statistics include your cases, unassigned cases, and cases assigned to you.
+    {% else %}
+    Profile statistics include only evidence cases submitted by your account.
+    {% endif %}
+</p>
+{% endblock %}

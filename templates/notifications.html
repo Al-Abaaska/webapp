@@ -1,0 +1,27 @@
+{% extends "_base/base.html" %}
+{% block title %}Notifications - PMD{% endblock %}
+
+{% block content %}
+<header class="notifications-hero">
+    <div><span><i class="fas fa-sparkles"></i> TRACKED CASE UPDATES</span><h1>Notifications</h1><p>Final fact-checker decisions and important updates for your investigations.</p></div>
+    {% if unread_notification_count %}<form method="POST" action="{{ url_for('notifications.read_all') }}"><button class="btn-modern outline" type="submit"><i class="fas fa-check-double"></i> Mark all as read</button></form>{% endif %}
+</header>
+
+{% if notifications %}
+<section class="notification-page-list">
+    {% for notification in notifications %}
+    <article class="notification-page-item {% if not notification.is_read %}unread{% endif %}">
+        <div class="notification-page-icon"><i class="fas fa-circle-check"></i></div>
+        <div class="notification-page-copy">
+            <div><strong>{{ notification.title }}</strong>{% if not notification.is_read %}<span>NEW</span>{% endif %}</div>
+            <p>{{ notification.message }}</p>
+            <time><i class="fas fa-clock"></i> {{ notification.created_at|somali_time }}</time>
+        </div>
+        <form method="POST" action="{{ url_for('notifications.open_notification', notification_id=notification.id) }}"><button class="btn-modern {% if notification.is_read %}outline{% else %}primary{% endif %}" type="submit">{{ 'Open tracker' if notification.audit_id else 'View' }} <i class="fas fa-arrow-right"></i></button></form>
+    </article>
+    {% endfor %}
+</section>
+{% else %}
+<section class="notification-empty card-modern"><div><i class="fas fa-bell"></i></div><h2>No notifications yet</h2><p>When a fact-checker publishes a final decision, you will see it here.</p><a href="{{ url_for('history.cases') }}" class="btn-modern primary"><i class="fas fa-route"></i> Track my cases</a></section>
+{% endif %}
+{% endblock %}

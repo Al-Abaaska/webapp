@@ -200,3 +200,64 @@ select.form-input option { background: var(--select-bg); color: var(--input-colo
     background: none; border: none; font-size: 24px; cursor: pointer;
     color: var(--text-muted); line-height: 1;
 }
+
+/* ═══ COMPONENTS MAGIC ═══ */
+
+/* Stat cards: lift + icon float on hover */
+.stat-card { transition: opacity 0.6s cubic-bezier(0.16,1,0.3,1), transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s ease, border-color 0.3s ease; }
+.stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(99,102,241,0.18); }
+.stat-card .stat-icon { transition: transform 0.35s cubic-bezier(0.16,1,0.3,1); }
+.stat-card:hover .stat-icon { transform: translateY(-4px) scale(1.08); }
+.stat-card .stat-value { transition: color 0.3s ease; }
+
+/* Card-modern: hover glow + border accent */
+.card-modern { position: relative; transition: opacity 0.6s cubic-bezier(0.16,1,0.3,1), transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s ease, border-color 0.3s ease; }
+.card-modern:hover { transform: translateY(-3px); border-color: rgba(99,102,241,0.3); box-shadow: 0 14px 44px rgba(0,0,0,0.25); }
+
+/* Buttons: shimmer on primary */
+.btn-modern.primary { position: relative; overflow: hidden; }
+.btn-modern.primary::after {
+    content: ''; position: absolute; top: 0; left: -60%;
+    width: 40%; height: 100%;
+    background: linear-gradient(105deg, transparent, rgba(255,255,255,0.22), transparent);
+    transform: skewX(-20deg); pointer-events: none;
+    transition: left 0.6s ease;
+}
+.btn-modern.primary:hover::after { left: 130%; }
+.btn-modern.primary:active { transform: translateY(0) scale(0.98); }
+
+/* Modal: pop-in */
+.modal-box { animation: popIn 0.32s cubic-bezier(0.16,1,0.3,1); }
+
+/* Table rows subtle fade-in on hover */
+table tbody tr { transition: background 0.15s ease, transform 0.2s ease; }
+table tbody tr:hover { transform: translateX(2px); }
+
+/* Flash messages: gentle entrance */
+.flash-msg { position: relative; overflow: hidden; }
+.flash-msg::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: currentColor; opacity: 0.6;
+}
+.flash-msg i { animation: iconPop 0.4s cubic-bezier(0.16,1,0.3,1); }
+@keyframes iconPop { 0% { opacity: 0; transform: scale(0.5) rotate(-10deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
+
+/* Badges: subtle lift */
+.badge-modern { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.badge-modern:hover { transform: translateY(-1px) scale(1.04); }
+
+/* Progress bars: animated fill */
+.progress-modern .bar, .r-bar .bar-fill { animation: barGrow 0.8s cubic-bezier(0.16,1,0.3,1); }
+@keyframes barGrow { from { width: 0 !important; } }
+/* Global action progress: visible for form submissions, requests, and navigation. */
+#pmdGlobalProgress { position:fixed; inset:0; z-index:100000; pointer-events:none; opacity:0; visibility:hidden; transition:opacity .16s ease,visibility .16s ease; }
+#pmdGlobalProgress.active { opacity:1; visibility:visible; }
+.pmd-global-progress-track { position:absolute; left:0; right:0; top:0; height:4px; background:rgba(99,102,241,.13); overflow:hidden; }
+.pmd-global-progress-track span { display:block; width:38%; height:100%; background:linear-gradient(90deg,#6366f1,#22d3ee,#8b5cf6); border-radius:0 4px 4px 0; animation:pmdProgressSweep 1.05s cubic-bezier(.4,0,.2,1) infinite; box-shadow:0 0 14px rgba(99,102,241,.7); }
+.pmd-action-loading { position:relative; cursor:wait !important; opacity:.82; }
+.pmd-action-loading::after { content:''; display:inline-block; width:12px; height:12px; margin-left:8px; vertical-align:-1px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:pmdProgressSpin .7s linear infinite; }
+.pmd-action-loading.loading::after,.pmd-action-loading:has(.fa-spinner)::after { display:none; }
+.pmd-action-loading > .fa-spinner.fa-spin { display:inline-block; }
+@keyframes pmdProgressSpin { to { transform:rotate(360deg); } }
+@keyframes pmdProgressSweep { 0% { transform:translateX(-110%); } 100% { transform:translateX(365%); } }
+@media (prefers-reduced-motion: reduce) { .pmd-global-progress-track span,.pmd-action-loading::after { animation-duration:1.8s; } }

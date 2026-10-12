@@ -158,6 +158,54 @@ def _normalize_scope_text(text):
     return normalized
 
 
+def _has_explicit_security_scope(text):
+    """Detect unambiguous government defence/security content.
+
+    The LLM still handles ordinary and ambiguous scope decisions. This narrow
+    guard prevents false negatives when ceremonial wording (for example,
+    closing a training course) describes an armed-forces activity.
+    """
+    normalized = re.sub(r'\s+', ' ', (text or '').casefold()).strip()
+    strong_security_phrases = (
+        'xoogga dalka',
+        'ciidanka dhulka',
+        'ciidanka badda',
+        'ciidanka cirka',
+        'ciidanka qalabka sida',
+        'ciidamada qaranka',
+        'ciidanka qaranka',
+        'ciidamada dowladda',
+        'ciidanka dowladda',
+        'taliyaha ciidanka',
+        'taliska ciidanka',
+        'ciidanka booliska',
+        'nabad sugidda',
+        'wasaaradda gaashaandhigga',
+        'wasaaradda difaaca',
+        'kumaandooska',
+        'kumaandoos',
+        'aussom',
+        'amisom',
+        'atmis',
+    )
+    if any(phrase in normalized for phrase in strong_security_phrases):
+        return True
+
+    force_terms = (
+        'ciidan', 'ciidamo', 'taliye', 'militari', 'askari', 'sarkaal',
+        'guuto', 'cutub', 'maleeshiyaad',
+    )
+    security_actions = (
+        'tababar', 'howlgal', 'hawlgal', 'dagaal', 'weerar', 'qarax',
+        'isku dhac', 'xabbad', 'hub', 'saldhig', 'talis', 'difaac',
+        'amniga', 'argagixiso', 'al-shabaab', 'la dagaallanka',
+    )
+    return (
+        any(term in normalized for term in force_terms)
+        and any(term in normalized for term in security_actions)
+    )
+
+
 def is_political(text):
     """Return True/False for Somali political scope, or None if the LLM fails."""
     system_prompt = (
@@ -165,6 +213,9 @@ def is_political(text):
         'Return exactly one token: POLITICAL or NOT_POLITICAL.'
     )
     scope_text = _normalize_scope_text(text)
+    if _has_explicit_security_scope(scope_text):
+        print('[PoliticalScope] Explicit defence/security content classified as POLITICAL')
+        return True
     user_prompt = f"""Go'aami in qoraalkan Af-Soomaaliga ahi yahay SIYAASADEED ama AAN SIYAASADEED AHAYN.
 
 SIYAASADEED waxaa ka mid ah:
@@ -172,6 +223,7 @@ SIYAASADEED waxaa ka mid ah:
 - Go'aan rasmi ah, magacaabis, xil-ka-qaadis, isla-xisaabtan, musuqmaasuq ama khilaaf maamul.
 - Doorasho, xisbi siyaasadeed, mucaarad, baarlamaan ama awood-qaybsi.
 - Amni, ciidan, dagaal ama khilaaf ay dowladda ama maamulku dhinac ka tahay.
+- Hoggaanka ciidamada, talis ciidan, guuto, kumaandoos, tababar ciidan, hawlgal, hub, saldhig, abaabul ama iskaashi militari oo dowlado dhex mara. Arrimahan waa POLITICAL xitaa haddii ficilka lagu sheegay xaflad, booqasho ama "tababar ayaa loo soo xiray".
 - Heshiis dowladeed, xiriir diblomaasiyadeed ama arrin dibadeed.
 - Kulan masuul dowladeed keliya marka ujeeddada kulanku khusayso mid ka mid ah arrimahaas.
 - Madaxweyne ama Ra'iisul Wasaare loogu yeeray kulan rasmi ah, xasaasi ah ama albaabadu u xiran yihiin, gaar ahaan goob dowladeed, amni ama diblomaasiyadeed sida Xalane.
@@ -194,6 +246,7 @@ XEERAR:
 - "Maamul dowladeed" halkan waxaa loola jeedaa go'aan awood leh, isla-xisaabtan, magacaabis, xil-ka-qaadis ama khilaaf maamul; LOOGAMA jeedo hawl-maalmeed caadi ah oo wasaarad fulineyso.
 - Erayada "Dowlad", "Wasaarad", "Wasiir", "Agaasime" iyo "kormeer shaqo" kelidood ma dhigayaan qoraalka siyaasadeed.
 - Kormeer xarun imtixaan, dugsi, isbitaal ama goob ciyaareed waa NOT_POLITICAL haddii uusan qoraalku sheegin siyaasad, miisaaniyad, go'aan, musuqmaasuq, amni ama khilaaf.
+- Xaflad ama munaasabad ay ku lug leeyihiin ciidamada qalabka sida waa POLITICAL marka arrinta ugu weyn tahay tababar, talis, hawlgal, difaac, amni ama iskaashi militari; ha u kala saarin xaflad caadi ah.
 - Haddii qoraalku isku dhafan yahay, dooro POLITICAL keliya haddii sheegashada ugu weyn leedahay dhinac dowladeed ama siyaasadeed.
 - Ha qiimeyn runnimada qoraalka. Keliya go'aami mawduuciisa.
 - Soo saar POLITICAL ama NOT_POLITICAL oo keliya.
@@ -208,6 +261,7 @@ TUSAALEYAAL:
 - "Wasiirka ciyaaraha ayaa ku dhawaaqay siyaasad cusub iyo miisaaniyad lagu taageerayo kooxaha." -> POLITICAL
 - "Baarlamaanka ayaa ansixiyay sharciga doorashooyinka." -> POLITICAL
 - "Wasiirka amniga ayaa ka hadlay howlgal ciidan." -> POLITICAL
+- "Taliyeyaasha Ciidanka Dhulka Soomaaliya iyo Turkiga ayaa tababar u soo xiray guuto kumaandoos ah." -> POLITICAL
 
 Qoraalka:
 {scope_text[:1200]}
@@ -215,7 +269,7 @@ Qoraalka:
 Jawaabta:"""
 
     result = _call_llm(
-        system_prompt, user_prompt, max_tokens=256, direct_answer=True
+        system_prompt, user_prompt, max_tokens=8, direct_answer=True
     )
     if not result:
         return None
@@ -236,20 +290,23 @@ Jawaabta:"""
 
 
 def extract_main_claim(text):
-    """Extract the main factual claim from Somali text."""
-    system_prompt = 'You are a Somali language expert. Output ONLY the extracted claim text in Somali. No markdown, no thinking, no explanation.'
-    user_prompt = f"""Extract the single main factual claim from the following Somali text.
+    """Select the main factual claim as an exact span of the submitted text."""
+    original_text = str(text or '').strip()
+    system_prompt = (
+        'Select one exact continuous quote from Somali text. Output only words copied '
+        'verbatim from the input. Never rewrite, correct, summarize, or delete words '
+        'inside the selected span.'
+    )
+    user_prompt = f"""Select the single main factual claim from the following Somali text.
 
 Rules:
-- Remove clickbait words like "Warar hoose", "Xog lagu kalsoon yahay", "Breaking"
-- Remove introductory phrases
-- Remove unnecessary wording
-- Keep ONLY the central factual claim
-- Output ONLY the claim in Somali, nothing else
-- Maximum 2 sentences
+- Copy one CONTINUOUS span exactly as it appears in the input
+- Do not paraphrase, correct spelling, summarize, or replace any word
+- Do not join words from different locations
+- Output only the exact copied span, with no quotation marks or explanation
 
 Text:
-{text}
+{original_text}
 
 Main Claim:"""
 
@@ -258,7 +315,149 @@ Main Claim:"""
         result = result.strip().strip('"').strip("'")
         if result.lower().startswith('main claim:'):
             result = result[len('main claim:'):].strip()
-    return result
+        if result in original_text:
+            return result
+        # Case-only changes are still mapped back to the original characters.
+        start = original_text.casefold().find(result.casefold())
+        if start >= 0:
+            return original_text[start:start + len(result)]
+        print('[ClaimExtraction] Rejected non-verbatim LLM output; using original text.')
+    return original_text
+
+
+def extract_verbatim_claim_candidates(text):
+    """Ask two semantic passes for atomic claims; local code copies final text."""
+    original_text = re.sub(r'\s+', ' ', str(text or '')).strip()
+    if not original_text:
+        return []
+    system_prompt = (
+        'You extract independently checkable factual claims from Somali ASR '
+        'transcripts. Return only a JSON array of continuous quotes. Never '
+        'summarize, translate, combine distant words, or explain your answer.'
+    )
+    rules = """Mandatory rules:
+- Return every distinct factual assertion as a separate string.
+- One assertion per string. Split adjacent assertions even without punctuation.
+- Copy the smallest useful continuous quote containing its subject, action, and
+  necessary object, place, or time.
+- A claim should normally contain 3-25 words.
+- Preserve the transcript spelling and word order; do not improve the Somali.
+- Include comparison or timing claims such as "waa markii ugu horeysay ...".
+- Exclude greetings, prayers, presenter names, programme introductions,
+  transitions, promises of a later report, questions, and promotional wording.
+- Exclude framing equivalent to "warbixin ayaan idiin kaga haynaa",
+  "wararkii ugu dambeeyay", "sidoo kale", "amuurtaasi", "waxaan eegi doonaa",
+  or "barnaamijka wararka".
+- Inspect every Somali predicate marker (ayaa, waxaa, waa, ayey) because it may
+  begin a separate assertion.
+- Return valid JSON only: ["exact continuous claim", "exact continuous claim"]
+- If no factual claim exists, return [].
+"""
+    prompts = [
+        f"""Extract the atomic factual claims from this transcript.
+
+{rules}
+
+Transcript:
+{original_text}
+
+JSON:"""
+        ,
+        f"""Perform a coverage audit of this transcript. Identify factual claims
+that another extractor might miss, especially short adjacent assertions. Return
+the complete replacement list, not commentary.
+
+{rules}
+
+Transcript:
+{original_text}
+
+JSON:""",
+    ]
+
+    candidates = []
+    seen = set()
+    successful_response = False
+    for prompt in prompts:
+        result = _call_llm(
+            system_prompt,
+            prompt,
+            max_tokens=4096,
+            direct_answer=True,
+        )
+        if not result:
+            continue
+        cleaned = result.strip()
+        cleaned = re.sub(r'^```(?:json)?\s*', '', cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r'\s*```$', '', cleaned)
+        try:
+            parsed = json.loads(cleaned)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            print('[TranscriptClaims] Rejected non-JSON LLM response.')
+            continue
+        if isinstance(parsed, dict):
+            parsed = parsed.get('claims')
+        if not isinstance(parsed, list):
+            continue
+        successful_response = True
+        for value in parsed:
+            if not isinstance(value, str):
+                continue
+            candidate = re.sub(r'\s+', ' ', value).strip()
+            folded = candidate.casefold()
+            if candidate and folded not in seen:
+                candidates.append(candidate)
+                seen.add(folded)
+    return candidates[:80] if successful_response else None
+
+
+def extract_main_verbatim_claim_candidate(text):
+    """Select one complete central claim from an ASR transcript."""
+    original_text = re.sub(r'\s+', ' ', str(text or '')).strip()
+    if not original_text:
+        return None
+    system_prompt = (
+        'Select the single central factual claim from a Somali ASR transcript. '
+        'Return valid JSON only. The claim must be one continuous quote copied '
+        'from the transcript without correcting or rewriting any word.'
+    )
+    user_prompt = f"""Select only the MAIN factual claim from this transcript.
+
+Rules:
+- Return one continuous exact quote from the transcript.
+- Keep all words needed to make the main claim self-contained: subject, action,
+  object, reason, time, place, and dependent context when relevant.
+- The quote may be long when those details belong to the same central event.
+- Exclude greetings, presenter introductions, transitions, reactions, opinions,
+  supporting commentary, and secondary claims.
+- Do not correct ASR spelling, paraphrase, summarize, or combine distant spans.
+- Return JSON only in this form: {{"claim":"exact transcript quote"}}
+- If no factual claim exists, return {{"claim":""}}.
+
+Transcript:
+{original_text}
+
+JSON:"""
+    result = _call_llm(
+        system_prompt,
+        user_prompt,
+        max_tokens=512,
+        direct_answer=True,
+    )
+    if not result:
+        return None
+    cleaned = result.strip()
+    cleaned = re.sub(r'^```(?:json)?\s*', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\s*```$', '', cleaned)
+    try:
+        parsed = json.loads(cleaned)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        print('[TranscriptClaims] Main-claim response was not valid JSON.')
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    candidate = re.sub(r'\s+', ' ', str(parsed.get('claim') or '')).strip()
+    return candidate or None
 
 
 def generate_search_queries(original_text, main_claim):

@@ -1,5 +1,5 @@
 {% extends "_base/base.html" %}
-{% block title %}Fact-Checker Reviews - Somali MD{% endblock %}
+{% block title %}Fact-Checker Reviews - PMD{% endblock %}
 
 {% block content %}
 <div style="margin-bottom:24px;">
@@ -32,12 +32,12 @@
             </td>
             <td>{{ audit.user.username }}</td>
             <td><span class="badge-modern {{ audit.predicted_label|lower }}">{{ audit.predicted_label }}</span></td>
-            <td>{% if audit.prediction_record %}{{ "%.1f"|format(audit.prediction_record.confidence) }}%{% else %}—{% endif %}</td>
+            <td>{% if audit.confidence is not none %}{{ "%.1f"|format(audit.confidence) }}%{% else %}<span title="This legacy case did not preserve its original score.">Not recorded</span>{% endif %}</td>
             <td style="font-weight:700;color:{{ 'var(--danger)' if audit.spread_record and audit.spread_record.submission_count >= 5 else 'var(--text-muted)' }};">{{ audit.spread_record.submission_count if audit.spread_record else 1 }}x</td>
             <td>{{ audit.sources|length }}</td>
             <td>{{ audit.assignee.username if audit.assignee else 'Unassigned' }}</td>
             <td><span style="font-size:12px;font-weight:700;">{{ audit.review_status|replace('_',' ')|title }}</span></td>
-            <td style="white-space:nowrap;color:var(--text-muted);">{{ audit.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td style="white-space:nowrap;color:var(--text-muted);">{{ audit.created_at|somali_time }}</td>
             <td>
                 {% if not audit.assignee %}
                 <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">

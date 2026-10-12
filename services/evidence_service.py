@@ -16,7 +16,7 @@ from .somali_sources import identify_trusted_publisher
 MIN_EVIDENCE_SIMILARITY = 30
 
 
-REFUTATION_TERMS = (
+CONTRADICTION_TERMS = (
     'been abuur', 'war been', 'been ah', 'ma jirto', 'ma aha run',
     'beenisay', 'beeniyay', 'beeniyey', 'xaqiiqo ma aha', 'marin habaabin',
     'false', 'fake', 'debunk', 'refute', 'denied', 'not true',
@@ -108,8 +108,11 @@ def _apply_trusted_publisher(item):
 
 def _classify_stance(item, predicted_label=''):
     combined = f"{item.get('title', '')} {item.get('snippet', '')}".lower()
-    if any(term in combined for term in REFUTATION_TERMS):
-        return 'Refutes'
+    # The UI intentionally uses only Supports, Repeats, and Unclear.  A result
+    # containing a denial/debunking cue is therefore left Unclear for human
+    # review instead of assigning the removed Refutes category.
+    if any(term in combined for term in CONTRADICTION_TERMS):
+        return 'Unclear'
     label = (predicted_label or '').strip().casefold()
     if label in ('misinformation', 'misleading'):
         if (

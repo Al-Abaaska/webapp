@@ -1,20 +1,55 @@
 {% extends "_base/base.html" %}
-{% block title %}Evidence Audit - Somali MD{% endblock %}
+{% block title %}Track Case FC-{{ audit.id }} - PMD{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/tracking.css') }}">{% endblock %}
 
 {% block content %}
-<div style="margin-bottom:24px;">
-    <a href="{{ url_for('predict.index') if previous_view|default(false) else url_for('history.index') }}" style="color:var(--primary);font-size:13px;text-decoration:none;"><i class="fas fa-arrow-left"></i> {{ 'Back to prediction' if previous_view|default(false) else 'Prediction history' }}</a>
-    <h1 style="font-size:28px;font-weight:800;color:var(--text);margin:12px 0 6px;">Evidence Audit #{{ audit.id }}</h1>
-    <p style="color:var(--text-muted);font-size:14px;">Retrieved {{ audit.created_at.strftime('%Y-%m-%d %H:%M') }} &middot; Evidence {{ audit.status|capitalize }} &middot; Review {{ audit.review_status|replace('_',' ')|title }}</p>
-    {% if audit.assignee and not previous_view|default(false) %}<p style="color:var(--text-muted);font-size:12px;margin-top:5px;">Assigned fact-checker: {{ audit.assignee.username }}</p>{% endif %}
-    {% if audit.spread_record %}<p style="color:var(--warning);font-size:13px;font-weight:700;margin-top:7px;"><i class="fas fa-tower-broadcast"></i> Claim Spread Activity: submitted {{ audit.spread_record.submission_count }} time{{ 's' if audit.spread_record.submission_count != 1 else '' }}</p>{% endif %}
-</div>
+<header class="tracker-head">
+    <div>
+        <a href="{{ url_for('predict.index') if previous_view|default(false) else url_for('history.cases') }}" class="tracker-back"><i class="fas fa-arrow-left"></i> {{ 'Back to prediction' if previous_view|default(false) else 'My tracked cases' }}</a>
+        <div class="tracker-title-row"><span class="case-reference">FC-{{ audit.id }}</span>{% if tracking_state is defined %}<span class="case-state state-{{ tracking_state.key }}"><i class="fas {{ tracking_state.icon }}"></i> {{ tracking_state.label }}</span>{% endif %}</div>
+        <h1>{{ 'Previous Investigation' if previous_view|default(false) else ('Evidence Audit Needs Attention' if audit.status == 'failed' else ('Live Fact-Check Tracker' if audit.requires_fact_check else 'Completed Prediction Case')) }}</h1>
+        <p>{% if audit.status == 'failed' %}The prediction is safe, but related-source retrieval did not finish. Retry the evidence audit below.{% elif audit.requires_fact_check %}AI prediction and human verification are shown separately so you can see exactly where the case stands.{% else %}This Reliable prediction completed after the evidence audit and was not sent to the human-review queue.{% endif %}</p>
+    </div>
+    {% if tracking_state is defined %}<div class="tracker-progress-ring" style="--progress:{{ tracking_state.progress }}"><strong>{{ tracking_state.progress }}%</strong><span>complete</span></div>{% endif %}
+</header>
+
+{% if tracking_state is defined %}
+<section class="tracker-status-banner state-{{ tracking_state.key }}">
+    <i class="fas {{ tracking_state.icon }}"></i><div><strong>{{ tracking_state.label }}</strong><p>{{ tracking_state.message }}</p></div>
+</section>
+
+<section class="workflow-card card-modern" aria-label="Case tracking timeline">
+    <div class="workflow-line"></div>
+    {% for stage in timeline %}
+    <div class="workflow-stage {{ stage.state }}">
+        <div class="workflow-icon"><i class="fas {{ stage.icon }}"></i></div>
+        <div class="workflow-copy"><span>STEP {{ loop.index }}</span><strong>{{ stage.title }}</strong><p>{{ stage.description }}</p>{% if stage.time %}<time>{{ stage.time|somali_time }}</time>{% endif %}</div>
+    </div>
+    {% endfor %}
+</section>
+{% endif %}
+
+{% if audit.status == 'failed' and not audit.is_archived and not audit.fact_check_review and not previous_view|default(false) %}
+<section class="card-modern" style="margin-bottom:20px;border-left:4px solid var(--warning);">
+    <div class="card-body-modern" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:240px;">
+            <strong style="display:block;color:var(--text);margin-bottom:5px;"><i class="fas fa-rotate" style="color:var(--warning);"></i> Retry evidence retrieval</strong>
+            <p style="margin:0;color:var(--text-muted);line-height:1.6;font-size:13px;">The system will reuse this claim and AI prediction, search the sources again, and update FC-{{ audit.id }}.</p>
+            <p id="retryAuditError" role="alert" style="display:none;margin:8px 0 0;color:var(--danger);font-size:12px;"></p>
+        </div>
+        <button class="btn-modern primary" type="button" id="retryAuditButton" data-audit-id="{{ audit.id }}"><i class="fas fa-rotate"></i> Retry Audit</button>
+    </div>
+</section>
+{% endif %}
+
+{% if audit.is_archived %}<div class="tracker-archived"><i class="fas fa-box-archive"></i><div><strong>Investigation archived</strong><p>{{ audit.archive_reason or 'This case is preserved but is not currently active.' }}</p></div></div>{% endif %}
+{% if audit.spread_record %}<div class="tracker-spread"><i class="fas fa-tower-broadcast"></i><div><strong>Claim Spread Activity</strong><span>Submitted {{ audit.spread_record.submission_count }} time{{ 's' if audit.spread_record.submission_count != 1 else '' }}</span></div></div>{% endif %}
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-bottom:20px;">
     <div class="card-modern"><div class="card-body-modern">
-        <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:800;"><i class="fas fa-robot"></i> AI PREDICTION</p>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:800;"><i class="fas fa-robot"></i> AI PREDICTION — AUTOMATED</p>
         <span class="badge-modern {{ audit.predicted_label|lower }}">{{ audit.predicted_label }}</span>
-        {% if audit.prediction_record %}<strong style="margin-left:10px;color:var(--text);">{{ "%.1f"|format(audit.prediction_record.confidence) }}%</strong>{% endif %}
+        {% if audit.confidence is not none %}<strong style="margin-left:10px;color:var(--text);">{{ "%.1f"|format(audit.confidence) }}%</strong>{% else %}<span style="margin-left:10px;color:var(--text-muted);">Confidence not recorded</span>{% endif %}
         <p style="font-size:12px;color:var(--text-muted);margin:18px 0 6px;font-weight:700;">MAIN CLAIM</p>
         <p style="color:var(--text);line-height:1.7;">{{ audit.main_claim or audit.original_text }}</p>
         {% if audit.ai_explanation %}
@@ -28,16 +63,21 @@
     </div></div>
 
     <div class="card-modern"><div class="card-body-modern">
-        <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:800;"><i class="fas fa-user-check"></i> FACT-CHECKER DECISION</p>
-        {% if audit.fact_check_review %}
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:800;"><i class="fas fa-user-check"></i> FACT-CHECKER DECISION — HUMAN REVIEW</p>
+        {% if not audit.requires_fact_check %}
+        <div style="display:flex;gap:10px;align-items:flex-start;color:var(--text-muted);line-height:1.6;">
+            <i class="fas fa-circle-check" style="color:var(--success);margin-top:4px;"></i>
+            <div><strong style="display:block;color:var(--text);margin-bottom:4px;">No human review required</strong><p>Reliable predictions do not require fact-checker review.</p></div>
+        </div>
+        {% elif audit.fact_check_review %}
         {% set review = audit.fact_check_review %}
         <span class="badge-modern {{ 'reliable' if review.decision == 'Confirmed Reliable' else ('misinformation' if review.decision == 'Confirmed Misinformation' else 'misleading') }}">{{ review.decision }}</span>
         <p style="color:var(--text);line-height:1.7;margin-top:16px;">{{ review.explanation }}</p>
-        <p style="font-size:12px;color:var(--text-muted);margin-top:16px;">{% if not previous_view|default(false) %}Reviewed by {{ review.reviewer.username if review.reviewer else 'Deleted account' }} on {% else %}Reviewed on {% endif %}{{ review.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:16px;">{% if not previous_view|default(false) %}Reviewed by {{ review.reviewer.username if review.reviewer else 'Deleted account' }} on {% else %}Reviewed on {% endif %}{{ review.updated_at|somali_time }}</p>
         {% else %}
         <div style="display:flex;gap:10px;align-items:flex-start;color:var(--text-muted);line-height:1.6;">
             <i class="fas fa-clock" style="color:var(--warning);margin-top:4px;"></i>
-            <p>Awaiting fact-checker review. The AI prediction and retrieved sources are not a final human verdict.</p>
+            <div><strong style="display:block;color:var(--text);margin-bottom:4px;">No final decision yet</strong><p>Follow the tracker above for the current stage. The AI prediction and retrieved sources are not a final human verdict.</p></div>
         </div>
         {% endif %}
     </div></div>
@@ -45,14 +85,14 @@
 
 <div class="card-modern"><div class="card-body-modern">
     <h2 style="font-size:18px;margin-bottom:6px;">Retrieved sources ({{ sources|length }})</h2>
-    <p style="font-size:12px;color:var(--text-muted);margin-bottom:18px;">Related sources require human review; a match is not automatic proof. An official institution is primary evidence for its own announcement, while broader disputed claims still require independent corroboration.</p>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:18px;">A source match is not automatic proof. Official institutions are primary evidence for their own announcements, while broader disputed claims still require independent corroboration.</p>
     {% for source in sources %}
     <div style="padding:16px 0;border-top:1px solid var(--border);">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:7px;">
-            <strong style="color:var(--text);">{{ source.source }}</strong>
+            <a href="{{ url_for('sources.profile', source_id=source.id) }}" title="Open source intelligence profile" style="color:var(--text);font-weight:750;text-decoration:none;">{{ source.source }} <i class="fas fa-chart-line" style="font-size:10px;color:var(--primary);"></i></a>
             <span style="font-size:11px;color:var(--text-muted);">{{ source.platform }}{% if source.provider %} via {{ source.provider }}{% endif %}</span>
             {% if source.credibility %}<span style="font-size:10px;font-weight:700;color:var(--primary);">{{ source.credibility }}</span>{% endif %}
-            {% set displayed_stance = 'Repeats' if audit.predicted_label in ['Misinformation', 'Misleading'] and source.stance == 'Supports' else source.stance %}
+            {% set displayed_stance = 'Unclear' if source.stance == 'Refutes' else ('Repeats' if audit.predicted_label in ['Misinformation', 'Misleading'] and source.stance == 'Supports' else source.stance) %}
             <span class="badge-modern" style="font-size:10px;">{{ displayed_stance }}</span>
             <span style="font-size:12px;font-weight:700;color:var(--primary);">{{ "%.0f"|format(source.similarity_score) }}% match</span>
             {% if source.published_date %}<span style="font-size:11px;color:var(--text-muted);"><i class="fas fa-calendar"></i> {{ source.published_date }}</span>{% endif %}
@@ -64,4 +104,65 @@
     </div>
     {% else %}<p style="color:var(--text-muted);">No sources were stored for this audit.</p>{% endfor %}
 </div></div>
+{% endblock %}
+
+{% block extra_js %}
+{% if audit.status == 'failed' and not audit.is_archived and not audit.fact_check_review and not previous_view|default(false) %}
+<script>
+(function () {
+    var button = document.getElementById('retryAuditButton');
+    var errorBox = document.getElementById('retryAuditError');
+    if (!button) return;
+
+    button.addEventListener('click', async function () {
+        button.disabled = true;
+        errorBox.style.display = 'none';
+        var progressToken = window.PMDProgress ? window.PMDProgress.start({
+            button: button,
+            label: 'Retrying evidence audit...',
+            lockButton: true
+        }) : null;
+        var completed = false;
+        try {
+            var response = await fetch('/api/fact-check', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Accept': 'text/event-stream'},
+                body: JSON.stringify({retry_audit_id: Number(button.dataset.auditId)})
+            });
+            if (!response.ok) {
+                var problem = await response.json().catch(function () { return {}; });
+                throw new Error(problem.error || 'The evidence audit could not be retried.');
+            }
+            var reader = response.body.getReader();
+            var decoder = new TextDecoder();
+            var buffer = '';
+            while (true) {
+                var chunk = await reader.read();
+                buffer += decoder.decode(chunk.value || new Uint8Array(), {stream: !chunk.done});
+                var frames = buffer.split('\n\n');
+                buffer = frames.pop() || '';
+                frames.forEach(function (frame) {
+                    var eventLine = frame.split('\n').find(function (line) { return line.indexOf('event: ') === 0; });
+                    var dataLine = frame.split('\n').find(function (line) { return line.indexOf('data: ') === 0; });
+                    var eventName = eventLine ? eventLine.slice(7).trim() : '';
+                    var payload = {};
+                    try { payload = dataLine ? JSON.parse(dataLine.slice(6)) : {}; } catch (_) {}
+                    if (eventName === 'done') completed = true;
+                    if (eventName === 'error') throw new Error(payload.message || 'Evidence retrieval failed again.');
+                });
+                if (chunk.done) break;
+            }
+            if (!completed) throw new Error('The retry ended before completion. Please try again.');
+            window.location.reload();
+        } catch (error) {
+            errorBox.textContent = error.message;
+            errorBox.style.display = 'block';
+            button.disabled = false;
+        } finally {
+            if (window.PMDProgress && progressToken) window.PMDProgress.finish(progressToken);
+        }
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

@@ -1,15 +1,17 @@
 import json
+import math
 import os
 from datetime import datetime
 
 from flask import (
     Blueprint, render_template, request, redirect,
-    url_for, flash, jsonify, Response, stream_with_context,
+    url_for, flash, jsonify, Response, stream_with_context, current_app,
 )
 from flask_login import login_required, current_user
 from sqlalchemy.exc import IntegrityError
 
 from models import db, Prediction, EvidenceAudit, EvidenceSource, ClaimRecord
+from models.evidence import FACT_CHECK_REQUIRED_LABELS
 from services.ml_service import MLService
 from services.preprocessing import is_somali
 from services.gemini_service import (
@@ -21,6 +23,16 @@ from search.facebook_search import search_facebook_with_fallback
 from services.claim_service import claim_fingerprint, find_similar_claim, normalize_claim
 from services.ensemble_service import run_ensemble
 from services.evidence_service import retrieve_evidence
+from services.evidence_storage import (
+    build_evidence_source, normalize_evidence_item,
+)
+from services.time_service import utc_isoformat
+from services.media_asr_service import (
+    MediaASRError,
+    media_runtime_status,
+    transcribe_media_url,
+    transcribe_upload,
+)
 
 
 predict_bp = Blueprint('predict', __name__)
@@ -30,6 +42,12 @@ def _previous_claim_payload(record, match_type, similarity=None):
     prediction = record.first_prediction
     audit = record.investigation
     review = audit.fact_check_review if audit else None
+    predicted_label = (
+        audit.predicted_label if audit else (
+            prediction.prediction if prediction else ''
+        )
+    )
+    review_required = predicted_label in FACT_CHECK_REQUIRED_LABELS
     return {
         'match_type': match_type,
         'similarity': similarity,
@@ -37,9 +55,19 @@ def _previous_claim_payload(record, match_type, similarity=None):
         'prediction': prediction.prediction if prediction else (
             audit.predicted_label if audit else 'Pending'
         ),
-        'confidence': prediction.confidence if prediction else None,
-        'fact_checker_verdict': review.decision if review else 'Awaiting fact-checker review',
-        'reviewed_at': review.updated_at.isoformat() if review else None,
+        'confidence': prediction.confidence if prediction else (
+            audit.confidence if audit else None
+        ),
+        'fact_checker_verdict': review.decision if review else (
+            'Evidence audit not started' if audit is None else (
+                'Awaiting fact-checker review'
+                if review_required else
+                'Not required — Reliable case completed'
+            )
+        ),
+        'reviewed_at': utc_isoformat(review.updated_at) if review else None,
+        'completed_at': utc_isoformat(audit.completed_at) if audit else None,
+        'review_required': review_required,
         'evidence_sources': len(audit.sources) if audit else 0,
         'submission_count': record.submission_count,
         'investigation_status': audit.status if audit else 'pending',
@@ -101,7 +129,105 @@ def index():
     return render_template('predict/index.html', result=result, model_key=model_key,
                            text_value=text_value, models=ml.get_model_list(),
                            main_claim=main_claim, similar_content=similar_content,
-                           search_queries=search_queries, reported_by=reported_by)
+                           search_queries=search_queries, reported_by=reported_by,
+                           media_status=media_runtime_status(),
+                           asr_modes=current_app.config['ASR_MODELS'],
+                           asr_max_upload_mb=current_app.config['ASR_MAX_UPLOAD_MB'],
+                           asr_max_duration_minutes=(
+                               current_app.config['ASR_MAX_DURATION_SECONDS'] // 60
+                           ))
+
+
+@predict_bp.route('/api/transcribe-media', methods=['POST'])
+@login_required
+def transcribe_media():
+    """Transcribe media and return one exact Somali main claim."""
+    media_file = request.files.get('media_file')
+    media_url = (request.form.get('media_url') or '').strip()
+    has_file = media_file is not None and bool(media_file.filename)
+    if media_url and not current_app.config['ENABLE_PUBLIC_MEDIA_LINKS']:
+        return jsonify({
+            'error': (
+                'Public social-media links are not supported. '
+                'Upload a WAV, MP3, M4A, or MP4 file instead.'
+            ),
+            'code': 'media_links_disabled',
+        }), 400
+    if has_file and media_url:
+        return jsonify({'error': 'Use either one file or one media link, not both.'}), 400
+    if not has_file and not media_url:
+        return jsonify({'error': 'Select a WAV, MP3, M4A, or MP4 file.'}), 400
+
+    mode = (request.form.get('asr_mode') or 'dayax').strip().casefold()
+    # Accept values sent by a tab opened before Fast ASR was removed. Both
+    # legacy choices now resolve to the single supported Dayax model.
+    if mode in {'fast', 'accurate'}:
+        mode = 'dayax'
+    if mode not in current_app.config['ASR_MODELS']:
+        return jsonify({'error': 'Select a valid ASR processing mode.'}), 400
+
+    clip_start = None
+    clip_end = None
+    clip_start_raw = (request.form.get('clip_start_seconds') or '').strip()
+    clip_end_raw = (request.form.get('clip_end_seconds') or '').strip()
+    if clip_start_raw or clip_end_raw:
+        try:
+            clip_start = float(clip_start_raw or 0)
+            clip_end = float(clip_end_raw)
+        except (TypeError, ValueError):
+            return jsonify({
+                'error': 'Enter valid start and end times for the media segment.',
+                'code': 'invalid_media_segment',
+            }), 400
+        if (
+            not math.isfinite(clip_start)
+            or not math.isfinite(clip_end)
+            or clip_start < 0
+            or clip_end <= clip_start
+        ):
+            return jsonify({
+                'error': 'The segment end time must be later than its start time.',
+                'code': 'invalid_media_segment',
+            }), 400
+
+    content_length = request.content_length or 0
+    if content_length > current_app.config['ASR_MAX_UPLOAD_BYTES']:
+        return jsonify({
+            'error': (
+                f"Media files are limited to "
+                f"{current_app.config['ASR_MAX_UPLOAD_MB']} MB."
+            )
+        }), 413
+
+    try:
+        if media_url:
+            result = transcribe_media_url(
+                media_url,
+                mode=mode,
+                user_id=current_user.id,
+            )
+        else:
+            result = transcribe_upload(
+                media_file,
+                mode=mode,
+                user_id=current_user.id,
+                clip_start_seconds=clip_start,
+                clip_end_seconds=clip_end,
+            )
+        return jsonify(result)
+    except MediaASRError as exc:
+        return jsonify({
+            'error': str(exc),
+            'code': getattr(exc, 'code', 'media_error'),
+        }), 400
+    except Exception as exc:
+        current_app.logger.exception('Unexpected media transcription failure')
+        return jsonify({
+            'error': (
+                'Media transcription failed unexpectedly. '
+                f'Technical message: {str(exc)[:300]}'
+            )
+        }), 500
 
 
 @predict_bp.route('/investigation/<int:audit_id>')
@@ -239,7 +365,7 @@ def api_predict():
         if ensemble_result.get('tie_break'):
             analysis += ' ' + ensemble_result['tie_break']
     elif pred_lower == 'reliable':
-        analysis = 'Moodalku wuxuu qoraalkan u kala saaray Reliable isagoo ku salaynaya qaababka luqadeed ee uu ka bartay xogta tababarka. Tani ma aha xaqiijin kama dambays ah; ilaha la helay iyo qiimaynta fact-checker-ka waa in si gaar ah loo eegaa.'
+        analysis = 'Moodalku wuxuu qoraalkan u kala saaray Reliable isagoo ku salaynaya qaababka luqadeed ee uu ka bartay xogta tababarka. Saadaashani waa natiijada otomaatiga ah ee nidaamka, mana aha caddayn madax-bannaan oo xaqiijinaysa sheegashada.'
     elif pred_lower == 'misinformation':
         analysis = 'Moodalku wuxuu qoraalkan u kala saaray Misinformation isagoo ku salaynaya qaababka luqadeed ee uu ka bartay xogta tababarka. Saadaashu kaligeed ma caddaynayso in sheegashadu been tahay; ilaha iyo go\'aanka fact-checker-ka ayaa loo baahan yahay.'
     else:
@@ -550,30 +676,70 @@ def _legacy_api_fact_check():
 def api_fact_check():
     """Retrieve related evidence for any authenticated user and save an audit trail."""
     data = request.get_json() or {}
-    text = (data.get('text') or '').strip()
-    prediction = data.get('prediction', '')
-    model_key = data.get('model_key', 'sombertb')
-    ai_explanation = (data.get('analysis') or '').strip()[:2000]
+    retry_audit_id = data.get('retry_audit_id')
+    retry_audit = None
+    if retry_audit_id:
+        retry_audit = EvidenceAudit.query.filter_by(
+            id=retry_audit_id, user_id=current_user.id
+        ).with_for_update().first()
+        if retry_audit is None:
+            return jsonify({'error': 'The failed evidence audit was not found.'}), 404
+        if retry_audit.is_archived:
+            return jsonify({'error': 'Restore the archived case before retrying.'}), 409
+        if retry_audit.fact_check_review is not None:
+            return jsonify({'error': 'A human-reviewed case cannot be retried.'}), 409
+        if retry_audit.status != 'failed':
+            return jsonify({'error': 'Only a failed evidence audit can be retried.'}), 409
+        text = retry_audit.original_text.strip()
+        prediction = retry_audit.predicted_label
+        model_key = retry_audit.model_used
+        ai_explanation = retry_audit.ai_explanation
+    else:
+        text = (data.get('text') or '').strip()
+        prediction = data.get('prediction', '')
+        model_key = data.get('model_key', 'sombertb')
+        ai_explanation = (data.get('analysis') or '').strip()[:2000]
     if not text or prediction not in ('Reliable', 'Misinformation', 'Misleading'):
         return jsonify({'error': 'A valid prediction is required for evidence search.'}), 400
 
-    prediction_record = None
-    prediction_id = data.get('prediction_id')
-    if prediction_id:
-        prediction_record = Prediction.query.filter_by(
-            id=prediction_id, user_id=current_user.id
-        ).first()
-
-    audit = EvidenceAudit(
-        user_id=current_user.id,
-        prediction_id=prediction_record.id if prediction_record else None,
-        original_text=text,
-        ai_explanation=ai_explanation,
-        predicted_label=prediction,
-        model_used=model_key,
-        status='running',
-    )
-    db.session.add(audit)
+    review_required = prediction in FACT_CHECK_REQUIRED_LABELS
+    if retry_audit is not None:
+        audit = retry_audit
+        EvidenceSource.query.filter_by(audit_id=audit.id).delete(
+            synchronize_session=False
+        )
+        audit.main_claim = ''
+        audit.queries_json = '[]'
+        audit.status = 'running'
+        audit.error_message = ''
+        audit.completed_at = None
+        audit.assigned_to_id = None
+        audit.assigned_by_id = None
+        audit.assigned_at = None
+        audit.review_status = 'unassigned' if review_required else 'not_required'
+    else:
+        prediction_record = None
+        prediction_id = data.get('prediction_id')
+        if prediction_id:
+            prediction_record = Prediction.query.filter_by(
+                id=prediction_id, user_id=current_user.id
+            ).first()
+        if prediction_record is None:
+            return jsonify({
+                'error': 'The saved prediction could not be linked to this evidence audit. Run the prediction again and retry.'
+            }), 409
+        audit = EvidenceAudit(
+            user_id=current_user.id,
+            prediction_id=prediction_record.id,
+            prediction_confidence=prediction_record.confidence,
+            original_text=text,
+            ai_explanation=ai_explanation,
+            predicted_label=prediction,
+            model_used=model_key,
+            status='running',
+            review_status='unassigned' if review_required else 'not_required',
+        )
+        db.session.add(audit)
     db.session.commit()
     audit_id = audit.id
     claim_record = ClaimRecord.query.filter_by(
@@ -609,6 +775,7 @@ def api_fact_check():
             evidence, provider_counts = retrieve_evidence(
                 text, main_claim, search_queries, predicted_label=prediction
             )
+            evidence = [normalize_evidence_item(item) for item in evidence]
 
             trusted_count = sum(
                 1 for item in evidence if item.get('evidence_kind') == 'trusted'
@@ -632,24 +799,10 @@ def api_fact_check():
             audit_record.main_claim = main_claim
             audit_record.queries_json = json.dumps(search_queries, ensure_ascii=False)
             audit_record.status = 'complete'
+            audit_record.error_message = ''
             audit_record.completed_at = datetime.utcnow()
             for item in evidence:
-                db.session.add(EvidenceSource(
-                    audit_id=audit_id,
-                    title=item.get('title', ''),
-                    url=item.get('url', ''),
-                    source=item.get('source', 'Web'),
-                    platform=item.get('platform', 'Web'),
-                    provider=item.get('provider', ''),
-                    snippet=item.get('snippet', ''),
-                    published_date=item.get('date', ''),
-                    similarity_score=item.get('similarity_score', 0),
-                    scoring_method=item.get('scoring_method', 'lexical_fallback'),
-                    stance=item.get('stance', 'Unclear'),
-                    evidence_kind=item.get('evidence_kind', 'general'),
-                    credibility=item.get('credibility', ''),
-                    explanation=item.get('explanation', ''),
-                ))
+                db.session.add(build_evidence_source(audit_id, item))
             db.session.commit()
 
             if evidence:
@@ -657,14 +810,26 @@ def api_fact_check():
                     'audit_id': audit_id,
                     'evidence': evidence,
                     'provider_counts': provider_counts,
-                    'notice': 'Evidence audit saved. An admin can assign the case to a fact-checker for a final human decision.',
+                    'review_required': review_required,
+                    'notice': (
+                        'Evidence audit saved. An administrator can assign this case '
+                        'to a fact-checker for a final human decision.'
+                        if review_required else
+                        'Reliable prediction completed. Under the current workflow, '
+                        'this case is not sent for fact-checker review.'
+                    ),
                 })
             else:
                 yield sse('empty', {
                     'audit_id': audit_id,
+                    'review_required': review_required,
                     'message': 'No related public sources were retrieved. This does not prove the claim true or false.',
                 })
-            yield sse('done', {'status': 'complete', 'audit_id': audit_id})
+            yield sse('done', {
+                'status': 'complete',
+                'audit_id': audit_id,
+                'review_required': review_required,
+            })
 
         except Exception as exc:
             import traceback
@@ -682,6 +847,7 @@ def api_fact_check():
             yield sse('error', {
                 'message': 'Evidence search failed. The prediction remains available, but source retrieval could not be completed.',
                 'audit_id': audit_id,
+                'review_required': review_required,
             })
 
     return Response(

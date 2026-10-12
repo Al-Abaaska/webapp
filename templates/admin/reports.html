@@ -1,0 +1,67 @@
+{% extends "_base/base.html" %}
+{% block title %}Role Reports - PMD{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:28px;">
+    <div>
+        <h1 style="font-size:28px;font-weight:800;color:var(--text);margin-bottom:6px;">Role Activity Reports</h1>
+        <p style="color:var(--text-muted);font-size:15px;">Operational records for users, fact-checkers, and sub-admins. Available only to Hussein, the primary administrator.</p>
+    </div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;">
+        <a class="btn-modern primary" href="{{ url_for('admin.export_dataset') }}"><i class="fas fa-file-excel"></i> Download Dataset</a>
+        <a class="btn-modern ghost" href="{{ url_for('admin.index') }}"><i class="fas fa-arrow-left"></i> Admin Dashboard</a>
+    </div>
+</div>
+
+<div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:26px;">
+    <div class="stat-card"><div class="stat-icon indigo"><i class="fas fa-users"></i></div><div class="stat-value">{{ totals.users }}</div><div class="stat-label">Users</div></div>
+    <div class="stat-card"><div class="stat-icon yellow"><i class="fas fa-clipboard-check"></i></div><div class="stat-value">{{ totals.fact_checkers }}</div><div class="stat-label">Fact-Checkers</div></div>
+    <div class="stat-card"><div class="stat-icon red"><i class="fas fa-user-shield"></i></div><div class="stat-value">{{ totals.sub_admins }}</div><div class="stat-label">Sub-Admins</div></div>
+    <div class="stat-card"><div class="stat-icon green"><i class="fas fa-circle-check"></i></div><div class="stat-value">{{ totals.completed_reviews }}</div><div class="stat-label">Completed Human Reviews</div></div>
+</div>
+
+<div class="card-modern" style="margin-bottom:24px;">
+    <div class="card-header-modern"><h5><i class="fas fa-user" style="color:var(--primary);"></i> User Report</h5></div>
+    {% if user_reports %}
+    <div class="table-container"><table>
+        <thead><tr><th>User</th><th>Status</th><th>Predictions</th><th>Batch Uploads</th><th>Evidence Cases</th><th>Human-Reviewed Cases</th><th>Last Activity</th></tr></thead>
+        <tbody>{% for row in user_reports %}<tr>
+            <td><strong>{{ row.user.username }}</strong><br><small style="color:var(--text-muted);">{{ row.user.email }}</small></td>
+            <td><span class="badge-modern {{ 'reliable' if row.user.is_active else 'misinformation' }}">{{ 'Active' if row.user.is_active else 'Inactive' }}</span>{% if row.user.fact_checker_application_status == 'pending' %}<br><small style="color:var(--warning);">Fact-checker application pending</small>{% endif %}</td>
+            <td>{{ row.predictions }}</td><td>{{ row.batches }}</td><td>{{ row.cases }}</td><td>{{ row.reviewed_cases }}</td>
+            <td style="color:var(--text-muted);font-size:12px;">{{ row.last_activity|somali_time }}</td>
+        </tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<div class="empty-state"><i class="fas fa-user-slash"></i><h3>No users to report</h3></div>{% endif %}
+</div>
+
+<div class="card-modern" style="margin-bottom:24px;">
+    <div class="card-header-modern"><h5><i class="fas fa-clipboard-check" style="color:var(--warning);"></i> Fact-Checker Report</h5></div>
+    {% if fact_checker_reports %}
+    <div class="table-container"><table>
+        <thead><tr><th>Fact-Checker</th><th>Status</th><th>Open Assigned</th><th>Completed</th><th>Reliable</th><th>Misinformation</th><th>Misleading</th><th>Insufficient</th><th>Latest Review</th></tr></thead>
+        <tbody>{% for row in fact_checker_reports %}<tr>
+            <td><strong>{{ row.user.username }}</strong><br><small style="color:var(--text-muted);">{{ row.user.fact_checker_organization or row.user.email }}</small></td>
+            <td><span class="badge-modern {{ 'reliable' if row.user.is_active else 'misinformation' }}">{{ 'Active' if row.user.is_active else 'Inactive' }}</span></td>
+            <td>{{ row.assigned_open }}</td><td><strong>{{ row.completed }}</strong></td><td>{{ row.confirmed_reliable }}</td><td>{{ row.confirmed_misinformation }}</td><td>{{ row.confirmed_misleading }}</td><td>{{ row.insufficient }}</td>
+            <td style="color:var(--text-muted);font-size:12px;">{{ row.latest_review|somali_time if row.latest_review else 'No review yet' }}</td>
+        </tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<div class="empty-state"><i class="fas fa-clipboard"></i><h3>No approved fact-checkers</h3></div>{% endif %}
+</div>
+
+<div class="card-modern">
+    <div class="card-header-modern"><h5><i class="fas fa-user-shield" style="color:var(--danger);"></i> Sub-Admin Report</h5></div>
+    {% if sub_admin_reports %}
+    <div class="table-container"><table>
+        <thead><tr><th>Sub-Admin</th><th>Status</th><th>Case Assignment Actions</th><th>Archive / Restore Actions</th><th>Cases Last Assigned By</th><th>Joined</th></tr></thead>
+        <tbody>{% for row in sub_admin_reports %}<tr>
+            <td><strong>{{ row.user.username }}</strong><br><small style="color:var(--text-muted);">{{ row.user.email }}</small></td>
+            <td><span class="badge-modern {{ 'reliable' if row.user.is_active else 'misinformation' }}">{{ 'Active' if row.user.is_active else 'Inactive' }}</span></td>
+            <td>{{ row.assignment_actions }}</td><td>{{ row.archive_actions }}</td><td>{{ row.currently_assigned_by }}</td>
+            <td style="color:var(--text-muted);font-size:12px;">{{ row.user.created_at|somali_time('%Y-%m-%d') }}</td>
+        </tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<div class="empty-state"><i class="fas fa-user-shield"></i><h3>No sub-admins</h3></div>{% endif %}
+</div>
+{% endblock %}

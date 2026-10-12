@@ -1,5 +1,5 @@
 {% extends "_base/base.html" %}
-{% block title %}Profile - Somali MD{% endblock %}
+{% block title %}Profile - PMD{% endblock %}
 
 {% block content %}
 <div style="max-width:720px;margin:0 auto;">
@@ -16,7 +16,7 @@
                 <i class="fas fa-envelope" style="margin-right:4px;"></i> {{ current_user.email }}
             </p>
             <p style="color:var(--text-dim);font-size:13px;margin-top:4px;">
-                <i class="fas fa-calendar" style="margin-right:4px;"></i> Member since {{ current_user.created_at.strftime('%B %d, %Y') }}
+                <i class="fas fa-calendar" style="margin-right:4px;"></i> Member since {{ current_user.created_at|somali_time('%B %d, %Y') }}
             </p>
             <div style="margin-top:14px;display:flex;justify-content:center;gap:8px;">
                 <span class="badge-modern {{ 'misinformation' if current_user.role == 'admin' else ('misleading' if current_user.role == 'fact_checker' else 'reliable') }}">
@@ -28,6 +28,12 @@
                 <span class="badge-modern misleading"><i class="fas fa-exclamation-circle"></i> Unverified</span>
                 {% endif %}
             </div>
+            {% if current_user.fact_checker_application_status in ['pending', 'rejected', 'approved'] %}
+            <div style="margin:18px auto 0;max-width:560px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--input-bg);text-align:left;">
+                <strong style="display:block;color:var(--text);font-size:13px;margin-bottom:4px;"><i class="fas fa-id-card-clip" style="color:var(--primary);"></i> Fact-checker application: {{ current_user.fact_checker_application_status|capitalize }}</strong>
+                {% if current_user.fact_checker_application_status == 'pending' %}<small style="color:var(--text-muted);">Your credentials are waiting for administrator review. Review access remains disabled until approval.</small>{% elif current_user.fact_checker_application_status == 'rejected' %}<small style="color:var(--text-muted);">{{ current_user.fact_checker_application_note or 'The application was not approved.' }}</small>{% else %}<small style="color:var(--text-muted);">Your credentials were approved and fact-checker access is active.</small>{% endif %}
+            </div>
+            {% endif %}
         </div>
     </div>
 

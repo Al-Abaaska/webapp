@@ -1,5 +1,5 @@
 {% extends "_base/base.html" %}
-{% block title %}Database Viewer - Somali MD{% endblock %}
+{% block title %}Database Viewer - PMD{% endblock %}
 
 {% block content %}
 <div style="margin-bottom:32px;">
@@ -58,7 +58,7 @@
                         {% elif col == 'password_hash' %}
                             <code style="font-size:11px;">{{ val[:20] }}...</code>
                         {% elif col == 'created_at' or col == 'expires_at' %}
-                            {{ val.strftime('%Y-%m-%d %H:%M') if val else '-' }}
+                            {{ (val|somali_time) if val else '-' }}
                         {% else %}
                             {{ val }}
                         {% endif %}

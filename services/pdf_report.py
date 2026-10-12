@@ -3,7 +3,8 @@ PDF Report Generator — Export investigation report.
 Uses fpdf2 with Tahoma font for Somali character support.
 """
 import os
-from datetime import datetime
+
+from services.time_service import somalia_now
 from fpdf import FPDF
 
 
@@ -21,7 +22,7 @@ class ReportPDF(FPDF):
     def header(self):
         self.set_font('Tahoma', 'B', 10)
         self.set_text_color(99, 102, 241)
-        self.cell(0, 8, 'Somali Misinformation Detection System', align='L')
+        self.cell(0, 8, 'Political Misinformation Detection', align='L')
         self.set_text_color(120, 120, 120)
         self.set_font('Tahoma', '', 8)
         self.cell(0, 8, 'Investigation Report', align='R', new_x='LMARGIN', new_y='NEXT')
@@ -33,7 +34,7 @@ class ReportPDF(FPDF):
         self.set_y(-15)
         self.set_font('Tahoma', '', 7)
         self.set_text_color(150, 150, 150)
-        self.cell(0, 5, f'Generated: {datetime.now().strftime("%d %b %Y %H:%M")} | System Version: 1.0 | AI-Assisted Somali Political Misinformation Detection', align='C')
+        self.cell(0, 5, f'Generated: {somalia_now().strftime("%d %b %Y %H:%M EAT")} | System Version: 1.0 | AI-Assisted Somali Political Misinformation Detection', align='C')
 
     def section_title(self, title):
         self.set_font('Tahoma', 'B', 11)
@@ -126,7 +127,7 @@ def generate_report(prediction, confidence, main_claim, search_queries, similar_
 
     report_dir = os.path.join(os.path.dirname(__file__), 'static', 'reports')
     os.makedirs(report_dir, exist_ok=True)
-    filename = f'report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+    filename = f'report_{somalia_now().strftime("%Y%m%d_%H%M%S")}.pdf'
     filepath = os.path.join(report_dir, filename)
     pdf.output(filepath)
 

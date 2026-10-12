@@ -1,0 +1,12 @@
+{% extends "_base/base.html" %}
+{% block title %}Processing Batch - PMD{% endblock %}
+{% block content %}
+<div class="card-modern" style="max-width:620px;margin:70px auto;text-align:center;"><div class="card-body-modern" style="padding:46px;">
+    <div style="width:62px;height:62px;border:4px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 22px;"></div>
+    <h1 style="font-size:24px;color:var(--text);margin-bottom:8px;">Batch Analysis in Progress</h1>
+    <p style="color:var(--text-muted);margin-bottom:20px;">{{ job.filename }}</p>
+    <div style="height:9px;background:var(--border);border-radius:20px;overflow:hidden;"><div id="bar" style="height:100%;width:0;background:var(--primary);transition:width .3s;"></div></div>
+    <strong id="statusText" style="display:block;color:var(--text);margin-top:12px;">Preparing...</strong>
+</div></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+<script>setInterval(function(){fetch('{{ url_for('batch.status',job_id=job.id) }}').then(function(r){return r.json()}).then(function(d){document.getElementById('bar').style.width=(d.progress||0)+'%';document.getElementById('statusText').textContent=d.processed+' of '+d.total+' rows';if(d.status==='completed'||d.status==='error')location.reload();});},800);</script>
+{% endblock %}

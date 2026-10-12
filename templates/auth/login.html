@@ -1,5 +1,5 @@
 {% extends "_base/auth_base.html" %}
-{% block title %}Login - Somali MD{% endblock %}
+{% block title %}Login - PMD{% endblock %}
 
 {% block auth_content %}
 <div class="auth-card">
@@ -7,7 +7,7 @@
         <i class="fas fa-shield-alt"></i>
     </div>
     <h2 class="auth-title">Welcome Back</h2>
-    <p class="auth-subtitle">Sign in to detect Somali misinformation</p>
+    <p class="auth-subtitle">Sign in to analyze Somali political information</p>
 
     <form method="POST" action="{{ url_for('auth.login') }}">
         <div style="margin-bottom:18px;">

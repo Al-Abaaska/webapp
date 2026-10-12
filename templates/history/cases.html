@@ -1,0 +1,101 @@
+{% extends "_base/base.html" %}
+{% block title %}Track Claims - PMD{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/tracking.css') }}">{% endblock %}
+
+{% block content %}
+<section class="track-hero">
+    <div>
+        <span class="track-eyebrow"><i class="fas fa-sparkles"></i> MY FACT-CHECK JOURNEY</span>
+        <h1>Track every claim to its final decision</h1>
+        <p>Follow each AI prediction and evidence audit. Only Misinformation and Misleading cases continue to human fact-checking.</p>
+    </div>
+    <a class="btn-modern primary track-new" href="{{ url_for('predict.index') }}"><i class="fas fa-plus"></i> Check a new claim</a>
+</section>
+
+<section class="track-stats" aria-label="Case summary">
+    <div class="track-stat violet"><i class="fas fa-layer-group"></i><div><strong>{{ summary.total }}</strong><span>Total cases</span></div></div>
+    <div class="track-stat amber"><i class="fas fa-hourglass-half"></i><div><strong>{{ summary.queued }}</strong><span>Awaiting assignment</span></div></div>
+    <div class="track-stat blue"><i class="fas fa-user-shield"></i><div><strong>{{ summary.in_review }}</strong><span>With fact-checkers</span></div></div>
+    <div class="track-stat green"><i class="fas fa-clipboard-check"></i><div><strong>{{ summary.completed }}</strong><span>Completed cases</span></div></div>
+</section>
+
+<section class="card-modern track-filter-card">
+    <form method="GET" action="{{ url_for('history.cases') }}" class="track-filters">
+        <div class="track-filter-main">
+            <label for="caseSearch">Search your claims</label>
+            <div class="track-search"><i class="fas fa-magnifying-glass"></i><input id="caseSearch" name="search" value="{{ search }}" placeholder="Search claim text..."></div>
+        </div>
+        <div><label for="caseStatus">Progress</label><select id="caseStatus" name="status">
+            <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All stages</option>
+            <option value="queued" {% if status_filter == 'queued' %}selected{% endif %}>Awaiting assignment</option>
+            <option value="assigned" {% if status_filter == 'assigned' %}selected{% endif %}>Fact-checker assigned</option>
+            <option value="under_review" {% if status_filter == 'under_review' %}selected{% endif %}>Under review</option>
+            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed cases</option>
+            <option value="attention" {% if status_filter == 'attention' %}selected{% endif %}>Needs attention</option>
+        </select></div>
+        <div><label for="caseLabel">AI prediction</label><select id="caseLabel" name="label">
+            <option value="" {% if not label_filter %}selected{% endif %}>All predictions</option>
+            <option value="Reliable" {% if label_filter == 'Reliable' %}selected{% endif %}>Reliable</option>
+            <option value="Misinformation" {% if label_filter == 'Misinformation' %}selected{% endif %}>Misinformation</option>
+            <option value="Misleading" {% if label_filter == 'Misleading' %}selected{% endif %}>Misleading</option>
+        </select></div>
+        <button class="btn-modern primary" type="submit"><i class="fas fa-sliders"></i> Apply</button>
+        {% if search or label_filter or status_filter != 'all' %}<a class="btn-modern outline" href="{{ url_for('history.cases') }}">Reset</a>{% endif %}
+    </form>
+</section>
+
+{% if audits.items %}
+<div class="track-results-head"><h2>Your tracked cases</h2><span>{{ audits.total }} result{{ 's' if audits.total != 1 else '' }}</span></div>
+<section class="case-grid">
+{% for audit in audits.items %}
+{% set view = case_views[audit.id] %}
+{% set state = view.state %}
+<article class="case-card state-{{ state.key }}">
+    <div class="case-glow"></div>
+    <header class="case-card-head">
+        <div><span class="case-reference">FC-{{ audit.id }}</span><span class="case-state state-{{ state.key }}"><i class="fas {{ state.icon }}"></i> {{ state.label }}</span></div>
+        <span class="case-time" title="Last updated"><i class="fas fa-clock"></i> {{ view.last_updated|somali_time }}</span>
+    </header>
+    <div class="case-ai-row">
+        <span class="badge-modern {{ audit.predicted_label|lower }}">AI: {{ audit.predicted_label }}</span>
+        {% if audit.confidence is not none %}<strong>{{ '%.1f'|format(audit.confidence) }}%</strong>{% else %}<span>Confidence not recorded</span>{% endif %}
+        <span class="case-source-count"><i class="fas fa-link"></i> {{ audit.sources|length }} source{{ 's' if audit.sources|length != 1 else '' }}</span>
+    </div>
+    <p class="case-claim">{{ audit.main_claim or audit.original_text }}</p>
+    {% if audit.fact_check_review %}
+    <div class="case-verdict"><span>Fact-checker decision</span><strong><i class="fas fa-shield-circle-check"></i> {{ audit.fact_check_review.decision }}</strong></div>
+    {% else %}
+    <p class="case-message">{{ state.message }}</p>
+    {% endif %}
+    <div class="case-progress-meta"><span>Case progress</span><strong>{{ state.progress }}%</strong></div>
+    <div class="case-progress"><span style="width:{{ state.progress }}%"></span></div>
+    <div class="case-mini-timeline" aria-label="Case tracking stages">
+        {% if audit.requires_fact_check %}
+        {% set stage_names = ['AI', 'Evidence', 'Queue', 'Review', 'Decision'] %}
+        {% set reached = 5 if state.key == 'completed' else (4 if state.key == 'under_review' else (3 if state.key in ['assigned', 'queued'] else (2 if state.key in ['evidence', 'attention'] else 1))) %}
+        {% else %}
+        {% set stage_names = ['AI', 'Evidence', 'Completed'] %}
+        {% set reached = 3 if state.key == 'completed' else (2 if state.key in ['evidence', 'attention'] else 1) %}
+        {% endif %}
+        {% for stage_name in stage_names %}
+        <div class="mini-stage {% if loop.index <= reached %}reached{% endif %}"><i class="fas {% if loop.index < reached %}fa-check{% elif loop.index == reached %}fa-circle{% else %}fa-lock{% endif %}"></i><span>{{ stage_name }}</span></div>
+        {% endfor %}
+    </div>
+    <a class="case-open" href="{{ url_for('history.evidence_detail', audit_id=audit.id) }}">Open live tracker <i class="fas fa-arrow-right"></i></a>
+</article>
+{% endfor %}
+</section>
+
+{% if audits.pages > 1 %}
+<nav aria-label="Tracked case pages"><ul class="pagination-modern">
+    <li class="{% if not audits.has_prev %}disabled{% endif %}"><a href="{{ url_for('history.cases',page=audits.page-1,status=status_filter,label=label_filter,search=search) }}"><i class="fas fa-chevron-left"></i></a></li>
+    {% for page_number in audits.iter_pages(left_edge=1,left_current=1,right_current=2,right_edge=1) %}
+        {% if page_number %}<li>{% if page_number == audits.page %}<span class="active">{{ page_number }}</span>{% else %}<a href="{{ url_for('history.cases',page=page_number,status=status_filter,label=label_filter,search=search) }}">{{ page_number }}</a>{% endif %}</li>{% else %}<li><span class="ellipsis">&hellip;</span></li>{% endif %}
+    {% endfor %}
+    <li class="{% if not audits.has_next %}disabled{% endif %}"><a href="{{ url_for('history.cases',page=audits.page+1,status=status_filter,label=label_filter,search=search) }}"><i class="fas fa-chevron-right"></i></a></li>
+</ul></nav>
+{% endif %}
+{% else %}
+<section class="track-empty card-modern"><div class="track-empty-icon"><i class="fas fa-route"></i></div><h2>No tracked cases found</h2><p>{% if search or label_filter or status_filter != 'all' %}Try different filters to find your case.{% else %}Run a prediction to create your first evidence investigation.{% endif %}</p><a href="{{ url_for('predict.index') }}" class="btn-modern primary"><i class="fas fa-wand-magic-sparkles"></i> Analyze a claim</a></section>
+{% endif %}
+{% endblock %}

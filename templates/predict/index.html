@@ -1,5 +1,5 @@
 {% extends "_base/base.html" %}
-{% block title %}Predict - Somali MD{% endblock %}
+{% block title %}Predict - PMD{% endblock %}
 
 {% block content %}
 <style>
@@ -8,7 +8,6 @@
 .fc-audit-note.error { border-color:#ef4444; color:#b91c1c; background:rgba(239,68,68,.06); }
 .fc-stance { font-size:10px; font-weight:700; padding:3px 7px; border-radius:999px; text-transform:uppercase; letter-spacing:.03em; }
 .fc-stance.supports { color:#047857; background:rgba(16,185,129,.12); }
-.fc-stance.refutes { color:#b91c1c; background:rgba(239,68,68,.12); }
 .fc-stance.repeats { color:#9a6700; background:rgba(245,158,11,.14); }
 .fc-stance.unclear { color:#475569; background:rgba(100,116,139,.12); }
 .fc-hero { margin-bottom:32px; }
@@ -21,6 +20,61 @@
 .fc-input-card textarea { width:100%; min-height:140px; font-size:15px; line-height:1.7; resize:vertical; padding:16px; border-radius:12px; border:1px solid var(--border); background:var(--input-bg); color:var(--input-color); font-family:inherit; }
 .fc-input-card textarea:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(91,95,255,0.15); }
 .fc-input-card textarea::placeholder { color:var(--text-dim); }
+.fc-input-tabs { display:flex;gap:8px;padding:8px;border-bottom:1px solid var(--border);background:rgba(99,102,241,.035);border-radius:16px 16px 0 0; }
+.fc-input-tab { flex:1;border:0;border-radius:10px;padding:11px 14px;background:transparent;color:var(--text-muted);font:inherit;font-size:13px;font-weight:800;cursor:pointer; }
+.fc-input-tab.active { background:var(--input-bg);color:var(--primary);box-shadow:0 1px 4px rgba(15,23,42,.08); }
+.fc-input-panel[hidden] { display:none; }
+.fc-media-drop { display:block;border:2px dashed var(--border);border-radius:12px;padding:18px;background:var(--input-bg); }
+.fc-media-drop input { display:block;width:100%;margin-top:10px;color:var(--text); }
+.fc-media-help { margin:10px 0 0;color:var(--text-muted);font-size:12px;line-height:1.6; }
+.fc-media-editor { margin-top:14px;padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--input-bg); }
+.fc-media-editor[hidden],.fc-media-preview[hidden] { display:none; }
+.fc-media-editor-head { display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px; }
+.fc-media-editor-head strong { display:block;color:var(--text);font-size:13px;margin-bottom:3px; }
+.fc-media-editor-head span { color:var(--text-muted);font-size:11px;word-break:break-word; }
+.fc-media-preview { display:block;width:100%;max-height:280px;margin:0 0 14px;border-radius:10px;background:#050816; }
+.fc-clip-grid { display:grid;grid-template-columns:1fr 1fr;gap:12px; }
+.fc-clip-field label { display:block;margin-bottom:6px;color:var(--text-muted);font-size:10px;font-weight:800;text-transform:uppercase; }
+.fc-clip-input-row { display:flex;gap:7px; }
+.fc-clip-input-row input { min-width:0;width:100%;padding:10px;border:1px solid var(--border);border-radius:9px;background:var(--card-bg);color:var(--input-color);font:inherit; }
+.fc-clip-set { flex:0 0 auto;padding:0 11px;border:1px solid rgba(99,102,241,.25);border-radius:9px;background:rgba(99,102,241,.08);color:var(--primary);font:inherit;font-size:11px;font-weight:800;cursor:pointer; }
+.fc-clip-footer { display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border); }
+.fc-clip-summary { color:var(--text);font-size:12px;font-weight:700; }
+.fc-clip-summary.error { color:#dc2626; }
+.fc-clip-reset { padding:7px 10px;border:0;border-radius:8px;background:transparent;color:var(--primary);font:inherit;font-size:11px;font-weight:800;cursor:pointer; }
+.fc-media-source-tabs { display:flex;gap:8px;margin-bottom:12px; }
+.fc-media-source-tab { flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--text-muted);font:inherit;font-size:12px;font-weight:800;cursor:pointer; }
+.fc-media-source-tab.active { border-color:var(--primary);background:rgba(99,102,241,.08);color:var(--primary); }
+.fc-media-source-tab:disabled { opacity:.45;cursor:not-allowed; }
+.fc-media-source-panel[hidden] { display:none; }
+.fc-media-url-box { display:block;border:1px solid var(--border);border-radius:12px;padding:18px;background:var(--input-bg); }
+.fc-media-url-box input { display:block;width:100%;margin-top:10px;padding:12px 13px;border:1px solid var(--border);border-radius:9px;background:var(--card-bg);color:var(--input-color);font:inherit;font-size:13px; }
+.fc-media-url-box input:focus { outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(91,95,255,.12); }
+.fc-media-source-summary { margin-bottom:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--input-bg);font-size:12px;line-height:1.55;color:var(--text-muted); }
+.fc-media-source-summary strong { display:block;color:var(--text);margin-bottom:3px; }
+.fc-media-source-summary a { color:var(--primary);text-decoration:none;word-break:break-all; }
+.fc-runtime-badge { display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800;background:rgba(16,185,129,.1);color:#059669; }
+.fc-runtime-badge.error { background:rgba(239,68,68,.1);color:#dc2626; }
+.fc-media-progress { margin-top:18px;padding:18px;border:1px solid var(--border);border-radius:12px;background:var(--input-bg); }
+.fc-media-progress-head { display:flex;align-items:center;gap:10px;font-size:13px;font-weight:800;color:var(--text); }
+.fc-media-progress p { margin:8px 0 0;color:var(--text-muted);font-size:12px;line-height:1.6; }
+.fc-transcript-result { margin-top:18px; }
+.fc-transcript-meta { display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px; }
+.fc-transcript-meta div { padding:10px;border:1px solid var(--border);border-radius:9px;background:var(--input-bg); }
+.fc-transcript-meta small { display:block;color:var(--text-muted);font-size:9px;font-weight:800;text-transform:uppercase;margin-bottom:4px; }
+.fc-transcript-meta strong { color:var(--text);font-size:12px; }
+.fc-raw-transcript { margin:12px 0;border:1px solid var(--border);border-radius:10px;overflow:hidden; }
+.fc-raw-transcript summary { cursor:pointer;padding:12px 14px;color:var(--primary);font-size:12px;font-weight:800; }
+.fc-raw-transcript pre { margin:0;padding:14px;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:rgba(0,0,0,.12);color:var(--text);font:inherit;font-size:12px;line-height:1.65; }
+.fc-integrity-note { padding:11px 13px;border:1px solid rgba(16,185,129,.25);border-radius:9px;background:rgba(16,185,129,.06);color:var(--text-muted);font-size:12px;line-height:1.55; }
+.fc-claim-list { display:grid;gap:10px;margin-top:12px; }
+.fc-exact-claim { padding:14px;border:1px solid var(--border);border-radius:11px;background:var(--card-bg); }
+.fc-exact-head { display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px; }
+.fc-exact-head strong { color:var(--text);font-size:12px; }
+.fc-exact-head span { color:var(--text-muted);font-size:10px; }
+.fc-exact-claim p { margin:0;color:var(--text);font-size:13px;line-height:1.65; }
+.fc-search-preview { margin-top:8px;color:var(--text-muted);font-size:11px; }
+.fc-use-claim { margin-top:11px;padding:8px 12px;border:0;border-radius:8px;background:var(--primary);color:#fff;font:inherit;font-size:11px;font-weight:800;cursor:pointer; }
 .fc-input-row { display:flex; gap:12px; margin-top:16px; align-items:center; flex-wrap:wrap; }
 .fc-model-select { flex:1; min-width:240px; padding:10px 14px; border-radius:10px; border:1px solid var(--border); background:var(--select-bg); color:var(--input-color); font-size:14px; cursor:pointer; appearance:auto; }
 .fc-mode-wrap { flex:1;min-width:210px; }
@@ -169,17 +223,23 @@
 /* PDF export */
 .fc-export-btn { padding:5px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:transparent; color:var(--text-muted, rgba(255,255,255,0.5)); font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s; }
 .fc-export-btn:hover { border-color:var(--primary, #5b5bff); color:var(--primary, #5b5bff); }
+@media (max-width:700px) { .fc-transcript-meta { grid-template-columns:1fr 1fr; } .fc-input-tabs { flex-direction:column; } .fc-clip-grid { grid-template-columns:1fr; } .fc-clip-footer { align-items:flex-start;flex-direction:column; } .fc-clip-reset { padding-left:0; } }
 </style>
 
 <div class="fc-page">
     <div class="fc-hero">
         <h1>AI Fact-Checker</h1>
-        <p>Paste Somali political text. Our AI will classify it and find similar public content for verification.</p>
+        <p>Analyze Somali political text directly, or upload audio/video and investigate its exact main claim.</p>
     </div>
 
     <!-- Input Card -->
     <div class="fc-input-card">
+        <div class="fc-input-tabs" role="tablist" aria-label="Prediction input type">
+            <button type="button" class="fc-input-tab active" id="fcTextTab" data-panel="text" role="tab" aria-selected="true"><i class="fas fa-align-left"></i> Text only</button>
+            <button type="button" class="fc-input-tab" id="fcMediaTab" data-panel="media" role="tab" aria-selected="false"><i class="fas fa-file-audio"></i> Audio / Video</button>
+        </div>
         <div class="fc-input-body">
+            <div class="fc-input-panel" id="fcTextPanel" data-panel="text">
             <form id="fcForm" onsubmit="return false;">
                 <textarea id="fcText" placeholder="Paste political news or social media content here..."></textarea>
                 <div class="fc-input-row">
@@ -203,6 +263,59 @@
                     </button>
                 </div>
             </form>
+            </div>
+
+            <div class="fc-input-panel" id="fcMediaPanel" data-panel="media" hidden>
+                <form id="fcMediaForm" onsubmit="return false;">
+                    <label class="fc-media-drop" for="fcMediaFile">
+                        <strong>Select Somali audio or video</strong>
+                        <input id="fcMediaFile" name="media_file" type="file" accept=".wav,.mp3,.m4a,.mp4,audio/*,video/mp4">
+                        <p class="fc-media-help">WAV, MP3, M4A, or MP4 · maximum {{ asr_max_upload_mb }} MB · maximum {{ asr_max_duration_minutes }} minutes. The original transcript is preserved.</p>
+                    </label>
+                    <section class="fc-media-editor" id="fcMediaEditor" hidden aria-label="Select media segment">
+                        <div class="fc-media-editor-head">
+                            <div><strong><i class="fas fa-scissors"></i> Select the part to analyze</strong><span id="fcMediaFileSummary"></span></div>
+                        </div>
+                        <video class="fc-media-preview" id="fcVideoPreview" controls preload="metadata" hidden></video>
+                        <audio class="fc-media-preview" id="fcAudioPreview" controls preload="metadata" hidden></audio>
+                        <div class="fc-clip-grid">
+                            <div class="fc-clip-field">
+                                <label for="fcClipStart">Start time (seconds)</label>
+                                <div class="fc-clip-input-row">
+                                    <input id="fcClipStart" type="number" min="0" step="0.1" value="0" inputmode="decimal">
+                                    <button class="fc-clip-set" type="button" data-clip-action="start">Use player time</button>
+                                </div>
+                            </div>
+                            <div class="fc-clip-field">
+                                <label for="fcClipEnd">End time (seconds)</label>
+                                <div class="fc-clip-input-row">
+                                    <input id="fcClipEnd" type="number" min="1" step="0.1" inputmode="decimal">
+                                    <button class="fc-clip-set" type="button" data-clip-action="end">Use player time</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="fc-clip-footer">
+                            <span class="fc-clip-summary" id="fcClipSummary"></span>
+                            <button class="fc-clip-reset" id="fcClipReset" type="button"><i class="fas fa-rotate-left"></i> Use full file</button>
+                        </div>
+                    </section>
+                    <div class="fc-input-row">
+                    <div class="fc-mode-wrap">
+                            <label class="fc-mode-label" for="fcAsrMode">Somali speech model</label>
+                            <select class="fc-model-select" id="fcAsrMode" name="asr_mode">
+                                <option value="dayax" selected>IbrahimDayax XLS-R 1B</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="fc-analyze-btn" id="fcTranscribeBtn" data-runtime-ready="{{ 1 if media_status.ready else 0 }}" disabled>
+                            <i class="fas fa-wave-square"></i> Transcribe and extract main claim
+                        </button>
+                    </div>
+                    {% if not media_status.ready %}
+                    <span class="fc-runtime-badge error"><i class="fas fa-exclamation-circle"></i> Audio transcription is temporarily unavailable.</span>
+                    {% endif %}
+                </form>
+                <div id="fcMediaResult"></div>
+            </div>
         </div>
     </div>
 
@@ -220,9 +333,292 @@
     var btn = document.getElementById('fcAnalyzeBtn');
     var area = document.getElementById('resultArea');
     var analyzing = false;
+    var inputTabs = document.querySelectorAll('.fc-input-tab');
+    var inputPanels = document.querySelectorAll('.fc-input-panel');
+    var mediaForm = document.getElementById('fcMediaForm');
+    var mediaFile = document.getElementById('fcMediaFile');
+    var asrMode = document.getElementById('fcAsrMode');
+    var transcribeBtn = document.getElementById('fcTranscribeBtn');
+    var mediaResult = document.getElementById('fcMediaResult');
+    var mediaBusy = false;
+    var mediaEditor = document.getElementById('fcMediaEditor');
+    var videoPreview = document.getElementById('fcVideoPreview');
+    var audioPreview = document.getElementById('fcAudioPreview');
+    var mediaFileSummary = document.getElementById('fcMediaFileSummary');
+    var clipStartEl = document.getElementById('fcClipStart');
+    var clipEndEl = document.getElementById('fcClipEnd');
+    var clipSummary = document.getElementById('fcClipSummary');
+    var clipReset = document.getElementById('fcClipReset');
+    var mediaPreviewUrl = '';
+    var activeMediaPreview = null;
+    var sourceMediaDuration = 0;
+    var asrRuntimeReady = transcribeBtn.getAttribute('data-runtime-ready') === '1';
 
     // Store data for PDF export
     window._fcData = {};
+    window._asrTranscript = null;
+
+    function activateInputPanel(panelName) {
+        inputTabs.forEach(function(tab) {
+            var active = tab.getAttribute('data-panel') === panelName;
+            tab.classList.toggle('active', active);
+            tab.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        inputPanels.forEach(function(panel) {
+            panel.hidden = panel.getAttribute('data-panel') !== panelName;
+        });
+    }
+
+    inputTabs.forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            activateInputPanel(tab.getAttribute('data-panel'));
+        });
+    });
+
+    function clearMediaPreview() {
+        [videoPreview, audioPreview].forEach(function(preview) {
+            preview.pause();
+            preview.removeAttribute('src');
+            preview.hidden = true;
+            preview.load();
+        });
+        if (mediaPreviewUrl) URL.revokeObjectURL(mediaPreviewUrl);
+        mediaPreviewUrl = '';
+        activeMediaPreview = null;
+        sourceMediaDuration = 0;
+        mediaEditor.hidden = true;
+    }
+
+    function selectedClip(showError) {
+        var start = Number(clipStartEl.value);
+        var end = Number(clipEndEl.value);
+        var valid = Number.isFinite(start) && Number.isFinite(end) &&
+            start >= 0 && end > start && end <= sourceMediaDuration + 0.25;
+        if (!valid) {
+            clipSummary.textContent = 'End time must be later than start time and inside the file.';
+            clipSummary.classList.add('error');
+            return showError ? null : {valid:false};
+        }
+        var duration = end - start;
+        if (duration < 1) {
+            clipSummary.textContent = 'Select at least 1 second of media.';
+            clipSummary.classList.add('error');
+            return showError ? null : {valid:false};
+        }
+        clipSummary.classList.remove('error');
+        clipSummary.textContent = 'Selected: ' + formatTimestamp(start) + ' to ' +
+            formatTimestamp(end) + ' (' + formatTimestamp(duration) + ')';
+        return {
+            valid:true,
+            start:start,
+            end:Math.min(end, sourceMediaDuration),
+            duration:duration,
+            trimmed:start > 0.01 || end < sourceMediaDuration - 0.25
+        };
+    }
+
+    function prepareClipEditor(preview, file) {
+        var duration = Number(preview.duration || 0);
+        if (!Number.isFinite(duration) || duration <= 0) {
+            mediaEditor.hidden = true;
+            transcribeBtn.disabled = !asrRuntimeReady;
+            mediaResult.innerHTML = renderMediaError(
+                'The browser could not read this file duration. You can still process the full file.',
+                'media_preview_unavailable'
+            );
+            return;
+        }
+        sourceMediaDuration = duration;
+        clipStartEl.max = duration.toFixed(2);
+        clipEndEl.max = duration.toFixed(2);
+        clipStartEl.value = '0';
+        clipEndEl.value = duration.toFixed(2);
+        mediaFileSummary.textContent = file.name + ' · ' + formatTimestamp(duration);
+        mediaEditor.hidden = false;
+        transcribeBtn.disabled = !asrRuntimeReady;
+        selectedClip(false);
+    }
+
+    mediaFile.addEventListener('change', function() {
+        clearMediaPreview();
+        mediaResult.innerHTML = '';
+        transcribeBtn.disabled = true;
+        if (!mediaFile.files.length) return;
+        var file = mediaFile.files[0];
+        var isVideo = String(file.type || '').indexOf('video/') === 0 || /\.mp4$/i.test(file.name);
+        activeMediaPreview = isVideo ? videoPreview : audioPreview;
+        activeMediaPreview.hidden = false;
+        mediaPreviewUrl = URL.createObjectURL(file);
+        activeMediaPreview.src = mediaPreviewUrl;
+        activeMediaPreview.addEventListener('loadedmetadata', function onMetadata() {
+            activeMediaPreview.removeEventListener('loadedmetadata', onMetadata);
+            prepareClipEditor(activeMediaPreview, file);
+        });
+        activeMediaPreview.addEventListener('error', function onPreviewError() {
+            activeMediaPreview.removeEventListener('error', onPreviewError);
+            mediaEditor.hidden = true;
+            transcribeBtn.disabled = !asrRuntimeReady;
+        });
+        activeMediaPreview.load();
+    });
+
+    [clipStartEl, clipEndEl].forEach(function(input) {
+        input.addEventListener('input', function() { selectedClip(false); });
+    });
+
+    document.querySelectorAll('[data-clip-action]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            if (!activeMediaPreview || !Number.isFinite(activeMediaPreview.currentTime)) return;
+            var value = Math.min(activeMediaPreview.currentTime, sourceMediaDuration).toFixed(1);
+            if (button.getAttribute('data-clip-action') === 'start') clipStartEl.value = value;
+            else clipEndEl.value = value;
+            selectedClip(false);
+        });
+    });
+
+    clipReset.addEventListener('click', function() {
+        clipStartEl.value = '0';
+        clipEndEl.value = sourceMediaDuration.toFixed(2);
+        selectedClip(false);
+    });
+
+    mediaForm.addEventListener('submit', function() {
+        if (mediaBusy) return;
+        if (!mediaFile.files.length) {
+            mediaFile.focus();
+            return;
+        }
+        var clip = sourceMediaDuration ? selectedClip(true) : null;
+        if (sourceMediaDuration && !clip) return;
+        var body = new FormData();
+        body.append('media_file', mediaFile.files[0]);
+        body.append('asr_mode', asrMode.value);
+        if (clip && clip.trimmed) {
+            body.append('clip_start_seconds', clip.start.toFixed(3));
+            body.append('clip_end_seconds', clip.end.toFixed(3));
+        }
+        mediaBusy = true;
+        transcribeBtn.disabled = true;
+        transcribeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing media';
+        var startedAt = Date.now();
+        mediaResult.innerHTML = renderMediaProgress(0, clip);
+        var elapsedTimer = window.setInterval(function() {
+            var seconds = Math.floor((Date.now() - startedAt) / 1000);
+            var counter = document.getElementById('fcMediaElapsed');
+            if (counter) counter.textContent = seconds + ' seconds elapsed';
+        }, 1000);
+
+        fetch('/api/transcribe-media', {method:'POST', body:body})
+            .then(function(response) {
+                return response.json().then(function(data) {
+                    if (!response.ok) {
+                        var mediaError = new Error(data.error || 'Media transcription failed.');
+                        mediaError.code = data.code || 'media_error';
+                        throw mediaError;
+                    }
+                    return data;
+                });
+            })
+            .then(function(data) {
+                window._asrTranscript = data;
+                mediaResult.innerHTML = renderTranscriptResult(data);
+                mediaResult.scrollIntoView({behavior:'smooth', block:'start'});
+            })
+            .catch(function(error) {
+                mediaResult.innerHTML = renderMediaError(
+                    error.message || 'Media transcription failed.',
+                    error.code || 'media_error'
+                );
+            })
+            .finally(function() {
+                window.clearInterval(elapsedTimer);
+                mediaBusy = false;
+                transcribeBtn.disabled = !asrRuntimeReady || !mediaFile.files.length;
+                transcribeBtn.innerHTML = '<i class="fas fa-wave-square"></i> Transcribe and extract main claim';
+            });
+    });
+
+    mediaResult.addEventListener('click', function(event) {
+        var button = event.target.closest('[data-claim-index]');
+        if (!button || !window._asrTranscript) return;
+        var claim = window._asrTranscript.claims[Number(button.getAttribute('data-claim-index'))];
+        if (!claim || !claim.verbatim) return;
+        textEl.value = claim.classification_text;
+        activateInputPanel('text');
+        form.requestSubmit();
+        document.querySelector('.fc-input-card').scrollIntoView({behavior:'smooth', block:'start'});
+    });
+
+    function renderMediaProgress(seconds, clip) {
+        var action = clip && clip.trimmed
+            ? 'Cutting the selected segment and transcribing Somali speech'
+            : 'Preparing the uploaded audio and transcribing Somali speech';
+        var segmentNote = clip && clip.trimmed
+            ? 'Only ' + formatTimestamp(clip.start) + ' to ' + formatTimestamp(clip.end) + ' is being processed. '
+            : '';
+        return '<div class="fc-media-progress">' +
+            '<div class="fc-media-progress-head"><i class="fas fa-spinner fa-spin"></i> ' + action + '</div>' +
+            '<p id="fcMediaElapsed">' + Number(seconds || 0) + ' seconds elapsed</p>' +
+            '<p>' + segmentNote + 'Your selected audio is being transcribed.</p></div>';
+    }
+
+    function renderTranscriptResult(data) {
+        var completeTranscriptMode = String(data.claim_method || '').indexOf('complete_transcript_') === 0;
+        var claimHeading = completeTranscriptMode ? 'Complete claim text' : 'Exact main claim';
+        var claimStatus = completeTranscriptMode ? 'Full text' : 'Extracted';
+        var integrityMessage = completeTranscriptMode
+            ? 'This recording is not longer than three paragraph-equivalents, so its complete substantive text is kept as one exact claim. A confidently detected presenter introduction may be excluded. No selected words are rewritten or corrected.'
+            : 'This recording is longer than three paragraph-equivalents, so one central factual claim is copied continuously from the raw transcript. No selected words are rewritten or corrected.';
+        var sourceSummary = '';
+        if (data.source_type === 'public_url') {
+            sourceSummary = '<div class="fc-media-source-summary">' +
+                '<strong><i class="fas fa-link"></i> ' + esc(data.source_title || 'Public media') + '</strong>' +
+                (data.source_uploader ? '<span>' + esc(data.source_uploader) + ' · ' + esc(data.source_platform || '') + '</span><br>' : '') +
+                '<a href="' + esc(data.source_url) + '" target="_blank" rel="noopener noreferrer">Open original media</a>' +
+                '</div>';
+        }
+        var claims = (data.claims || []).map(function(claim, index) {
+            return '<article class="fc-exact-claim">' +
+                '<div class="fc-exact-head"><strong>' + claimHeading + '</strong>' +
+                '<span>Words ' + Number(claim.start_word) + '–' + Number(claim.end_word) + ' · ' + Number(claim.word_count) + ' words</span></div>' +
+                '<p>' + esc(claim.exact_text) + '</p>' +
+                '<div class="fc-search-preview"><strong>Separate search query:</strong> ' + esc(claim.search_query) + '</div>' +
+                '<button type="button" class="fc-use-claim" data-claim-index="' + index + '"><i class="fas fa-shield-halved"></i> Analyze these exact words</button>' +
+                '</article>';
+        }).join('');
+        var segmentNote = data.clip_applied
+            ? '<div class="fc-integrity-note" style="margin-bottom:12px;"><i class="fas fa-scissors"></i> Processed segment ' +
+                formatTimestamp(data.clip_start_seconds) + ' to ' + formatTimestamp(data.clip_end_seconds) +
+                ' from a ' + formatTimestamp(data.source_duration_seconds) + ' source. The original file was not changed.</div>'
+            : '';
+        return '<section class="fc-transcript-result">' +
+            sourceSummary +
+            segmentNote +
+            '<div class="fc-transcript-meta">' +
+                '<div><small>' + (data.clip_applied ? 'Selected duration' : 'Duration') + '</small><strong>' + formatSeconds(data.duration_seconds) + '</strong></div>' +
+                '<div><small>Transcription</small><strong>' + formatSeconds(data.transcription_seconds) + '</strong></div>' +
+                '<div><small>Claim preparation</small><strong>' + ((data.claims || []).length ? claimStatus : 'Unavailable') + '</strong></div>' +
+            '</div>' +
+            '<div class="fc-integrity-note"><i class="fas fa-lock"></i> ' + integrityMessage + '</div>' +
+            '<details class="fc-raw-transcript" open><summary>Raw Somali transcript</summary><pre>' + esc(data.raw_transcript) + '</pre></details>' +
+            '<div class="fc-claim-list">' + (claims || '<div class="fc-error">No exact main claim was extracted. The raw transcript remains available above.</div>') + '</div>' +
+            '</section>';
+    }
+
+    function formatSeconds(value) {
+        var seconds = Number(value || 0);
+        if (seconds >= 60) return (seconds / 60).toFixed(1) + ' min';
+        return seconds.toFixed(1) + ' s';
+    }
+
+    function formatTimestamp(value) {
+        var total = Math.max(0, Number(value || 0));
+        var hours = Math.floor(total / 3600);
+        var minutes = Math.floor((total % 3600) / 60);
+        var seconds = Math.floor(total % 60);
+        var clock = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+        return hours ? String(hours).padStart(2, '0') + ':' + clock : clock;
+    }
 
     form.addEventListener('submit', function() {
         if (analyzing) return;
@@ -280,7 +676,7 @@
                 return;
             }
             area.innerHTML = (data.previous_claim ? renderPreviousClaim(data.previous_claim) : '') + renderPrediction(data);
-            startFactCheck(data.text, data.prediction, data.model_key, data.prediction_id, data.analysis);
+            startEvidenceAudit(data.text, data.prediction, data.model_key, data.prediction_id, data.analysis);
         })
         .catch(function(err) {
             area.innerHTML = renderError(err.message || 'Network error. Please try again.');
@@ -288,12 +684,12 @@
         });
     }
 
-    function startFactCheck(text, prediction, modelKey, predictionId, analysis) {
+    function startEvidenceAudit(text, prediction, modelKey, predictionId, analysis) {
         window._fcFailed = false;
         var fcHtml = '<div class="fc-fc-wrap" id="fcWrap">' +
             '<div class="fc-fc-header">' +
             '<div class="fc-fc-spinner" id="fcSpinner"></div>' +
-            '<span class="fc-fc-title" id="fcTitle">Running fact-check...</span>' +
+            '<span class="fc-fc-title" id="fcTitle">Running evidence audit...</span>' +
             '<span class="fc-fc-pct" id="fcPct">0%</span>' +
             '</div>' +
             '<div class="fc-fc-steps" id="fcSteps">' +
@@ -324,27 +720,51 @@
             var reader = response.body.getReader();
             var decoder = new TextDecoder();
             var buffer = '';
+            var eventType = '';
+            var eventDataLines = [];
 
-            function read() {
-                reader.read().then(function(result) {
-                    if (result.done) { finishFc(window._fcFailed); return; }
-                    buffer += decoder.decode(result.value, { stream: true });
-                    var lines = buffer.split('\n');
-                    buffer = lines.pop();
-                    var evType = '', dataLines = [];
-                    for (var i = 0; i < lines.length; i++) {
-                        var line = lines[i];
-                        if (line.indexOf('event: ') === 0) evType = line.substring(7);
-                        else if (line.indexOf('data: ') === 0) dataLines.push(line.substring(6));
-                        else if (line === '' && evType && dataLines.length > 0) {
-                            try { handleSSE(evType, JSON.parse(dataLines.join(''))); } catch(e) {}
-                            evType = ''; dataLines = [];
-                        }
+            function dispatchSseEvent() {
+                if (!eventType || eventDataLines.length === 0) return;
+                try {
+                    handleSSE(eventType, JSON.parse(eventDataLines.join('\n')));
+                } catch (error) {
+                    window._fcFailed = true;
+                    showAuditStatus('A result update could not be displayed. Please open the tracked case.', true);
+                }
+                eventType = '';
+                eventDataLines = [];
+            }
+
+            function processSseLines(lines) {
+                lines.forEach(function(rawLine) {
+                    var line = rawLine.replace(/\r$/, '');
+                    if (line.indexOf('event:') === 0) {
+                        eventType = line.substring(6).trim();
+                    } else if (line.indexOf('data:') === 0) {
+                        eventDataLines.push(line.substring(5).trimStart());
+                    } else if (line === '') {
+                        dispatchSseEvent();
                     }
-                    read();
                 });
             }
-            read();
+
+            function read() {
+                return reader.read().then(function(result) {
+                    if (result.done) {
+                        buffer += decoder.decode();
+                        if (buffer) processSseLines([buffer]);
+                        dispatchSseEvent();
+                        finishFc(window._fcFailed);
+                        return;
+                    }
+                    buffer += decoder.decode(result.value, { stream: true });
+                    var lines = buffer.split(/\r?\n/);
+                    buffer = lines.pop();
+                    processSseLines(lines);
+                    return read();
+                });
+            }
+            return read();
         })
         .catch(function(error) {
             showAuditStatus(error.message || 'Evidence search failed.', true);
@@ -383,25 +803,33 @@
             window._fcData.similar_content = d.evidence;
             window._fcData.audit_id = d.audit_id;
             showAuditStatus(d.notice || 'Evidence audit saved.', false);
+            showTrackCase(d.audit_id, d.review_required);
+            revealEvidenceResult('fcSimilar');
         }
         else if (ev === 'empty') {
             window._fcData.audit_id = d.audit_id;
             document.getElementById('fcSimilar').innerHTML =
                 '<div class="fc-audit-note"><i class="fas fa-search"></i> ' + esc(d.message) + '</div>';
+            showTrackCase(d.audit_id, d.review_required);
+            revealEvidenceResult('fcSimilar');
         }
         else if (ev === 'error') {
             window._fcFailed = true;
             window._fcData.audit_id = d.audit_id;
             showAuditStatus(d.message || 'Evidence search failed.', true);
+            showTrackCase(d.audit_id, d.review_required);
+            revealEvidenceResult('fcAuditStatus');
             finishFc(true);
         }
         else if (ev === 'reported_by' && d.reported_by && d.reported_by.length > 0) {
             document.getElementById('fcReported').innerHTML = renderSimilarContent(d.reported_by, window._fcData.prediction);
             window._fcData.reported_by = d.reported_by;
+            revealEvidenceResult('fcReported');
         }
         else if (ev === 'similar_content' && d.similar_content && d.similar_content.length > 0) {
             document.getElementById('fcSimilar').innerHTML = renderSimilarContent(d.similar_content, window._fcData.prediction);
             window._fcData.similar_content = d.similar_content;
+            revealEvidenceResult('fcSimilar');
         }
     }
 
@@ -427,9 +855,18 @@
         if (t) t.textContent = failed ? 'Evidence search incomplete' : 'Evidence audit complete';
         var p = document.getElementById('fcPct');
         if (p) p.textContent = '100%';
-        steps = document.querySelectorAll('#fcSteps .fc-fc-step.running');
+        var steps = document.querySelectorAll('#fcSteps .fc-fc-step.running');
         steps.forEach(function(s) { s.className = 'fc-fc-step done'; });
         resetBtn();
+    }
+
+    function revealEvidenceResult(elementId) {
+        window.setTimeout(function() {
+            var target = document.getElementById(elementId);
+            if (target && target.innerHTML.trim()) {
+                target.scrollIntoView({behavior:'smooth', block:'start'});
+            }
+        }, 80);
     }
 
     function showAuditStatus(message, isError) {
@@ -438,6 +875,19 @@
         target.innerHTML = '<div class="fc-audit-note' + (isError ? ' error' : '') + '">' +
             '<i class="fas ' + (isError ? 'fa-exclamation-circle' : 'fa-info-circle') + '"></i> ' +
             esc(message) + '</div>';
+    }
+
+    function showTrackCase(auditId, reviewRequired) {
+        var target = document.getElementById('fcAuditStatus');
+        if (!target || !auditId || document.getElementById('trackCaseLink')) return;
+        var label = reviewRequired === false
+            ? 'View completed Reliable case'
+            : 'Track this case until the final decision';
+        target.insertAdjacentHTML('beforeend',
+            '<a id="trackCaseLink" href="/history/evidence/' + Number(auditId) + '" ' +
+            'class="btn-modern primary" style="display:flex;justify-content:center;margin-top:12px;">' +
+            '<i class="fas fa-route"></i> ' + label + '</a>'
+        );
     }
 
     function resetBtn() {
@@ -457,15 +907,28 @@
         return '<div class="fc-error"><div class="fc-error-text"><i class="fas fa-exclamation-circle"></i> ' + esc(msg) + '</div></div>';
     }
 
+    function renderMediaError(msg, code) {
+        var fallback = '';
+        return '<div class="fc-error"><div class="fc-error-text"><i class="fas fa-exclamation-circle"></i> ' +
+            esc(msg) + '</div>' + fallback + '</div>';
+    }
+
     function renderPreviousClaim(previous) {
         var exact = previous.match_type === 'exact';
         var reviewed = !!previous.reviewed_at;
+        var completedWithoutReview = previous.review_required === false && previous.review_status === 'not_required';
         var title = exact
-            ? (reviewed ? 'This claim was previously checked.' : 'This exact claim was previously submitted.')
+            ? (reviewed ? 'This claim was previously checked.' : (
+                completedWithoutReview
+                    ? 'This Reliable claim was previously completed.'
+                    : 'This exact claim was previously submitted.'
+            ))
             : 'A similar claim was previously investigated.';
-        var reviewedDate = reviewed
+        var decisionDate = reviewed
             ? new Date(previous.reviewed_at).toLocaleDateString(undefined, {year:'numeric', month:'long', day:'numeric'})
-            : 'Not yet reviewed';
+            : (completedWithoutReview && previous.completed_at
+                ? new Date(previous.completed_at).toLocaleDateString(undefined, {year:'numeric', month:'long', day:'numeric'})
+                : 'Not yet reviewed');
         var confidence = previous.confidence === null || previous.confidence === undefined
             ? 'Pending'
             : esc(previous.prediction) + ' — ' + Number(previous.confidence).toFixed(1) + '%';
@@ -476,8 +939,8 @@
                 : 'This is not treated as the same claim. A new prediction and evidence audit will continue below' + (previous.similarity ? ' (' + Number(previous.similarity).toFixed(0) + '% similarity).' : '.')) + '</p>' +
             '<div class="fc-previous-grid">' +
                 '<div class="fc-previous-field"><small>Previous AI prediction</small><strong>' + confidence + '</strong></div>' +
-                '<div class="fc-previous-field"><small>Fact-checker verdict</small><strong>' + esc(previous.fact_checker_verdict) + '</strong></div>' +
-                '<div class="fc-previous-field"><small>Reviewed</small><strong>' + esc(reviewedDate) + '</strong></div>' +
+                '<div class="fc-previous-field"><small>' + (completedWithoutReview ? 'Workflow outcome' : 'Fact-checker verdict') + '</small><strong>' + esc(previous.fact_checker_verdict) + '</strong></div>' +
+                '<div class="fc-previous-field"><small>' + (completedWithoutReview ? 'Completed' : 'Reviewed') + '</small><strong>' + esc(decisionDate) + '</strong></div>' +
                 '<div class="fc-previous-field"><small>Evidence sources</small><strong>' + Number(previous.evidence_sources || 0) + '</strong></div>' +
             '</div>' +
             '<div class="fc-spread"><i class="fas fa-tower-broadcast"></i> Claim Spread Activity: submitted ' + Number(previous.submission_count || 1) + ' time' + (Number(previous.submission_count || 1) === 1 ? '' : 's') + '.</div>' +
@@ -612,6 +1075,8 @@
             var score = Number(it.similarity_score || 0);
             var scoreClass = score >= 80 ? 'high' : score >= 50 ? 'mid' : 'low';
             var stance = it.stance || 'Unclear';
+            if (stance === 'Refutes') stance = 'Unclear';
+            if (!['Supports', 'Repeats', 'Unclear'].includes(stance)) stance = 'Unclear';
             if (questionedClaim && stance === 'Supports') stance = 'Repeats';
             var stanceClass = stance.toLowerCase();
             var kind = it.evidence_kind === 'trusted' ? (it.credibility || 'Trusted source') :
@@ -631,8 +1096,8 @@
                 '</div></div></div>';
         });
         var evidenceNote = questionedClaim
-            ? 'A related result may refute or repeat the claim. Review the linked source before making a final judgment.'
-            : 'A related result may support, refute, or repeat the claim. Review the linked source before making a final judgment.';
+            ? 'A related result may repeat the claim or remain unclear. Review the linked source before making a final judgment.'
+            : 'A related result may support or repeat the claim, or remain unclear. Review the linked source before making a final judgment.';
         evidenceNote += ' Official institutional sources confirm what that institution announced; they are not independent proof of every broader claim.';
         h += '</div><div class="fc-audit-note">' + evidenceNote + '</div></div>';
         return h;

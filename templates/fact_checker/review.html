@@ -1,20 +1,29 @@
 {% extends "_base/base.html" %}
-{% block title %}Review Audit #{{ audit.id }} - Somali MD{% endblock %}
+{% block title %}Review Audit #{{ audit.id }} - PMD{% endblock %}
 
 {% block content %}
 <div style="margin-bottom:24px;">
-    <a href="{{ url_for('fact_checker.dashboard') }}" style="color:var(--primary);font-size:13px;text-decoration:none;"><i class="fas fa-arrow-left"></i> Dashboard</a>
+    <a href="{{ url_for('admin.index') if current_user.is_admin else url_for('fact_checker.dashboard') }}" style="color:var(--primary);font-size:13px;text-decoration:none;"><i class="fas fa-arrow-left"></i> {{ 'Assignment Queue' if current_user.is_admin else 'Dashboard' }}</a>
     <h1 style="font-size:28px;font-weight:800;color:var(--text);margin:12px 0 6px;">Case FC-{{ audit.id }}</h1>
-    <p style="color:var(--text-muted);font-size:14px;">Submitted by {{ audit.user.username }} on {{ audit.created_at.strftime('%Y-%m-%d %H:%M') }} &middot; {{ audit.review_status|replace('_',' ')|title }}</p>
-    <p style="color:var(--text-muted);font-size:13px;margin-top:6px;">Assigned to: <strong>{{ audit.assignee.username if audit.assignee else 'Unassigned' }}</strong>{% if audit.assigner %} by {{ audit.assigner.username }}{% endif %}{% if audit.assigned_at %} on {{ audit.assigned_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}</p>
+    <p style="color:var(--text-muted);font-size:14px;">Submitted by {{ audit.user.username }} on {{ audit.created_at|somali_time }} &middot; {{ audit.review_status|replace('_',' ')|title }}</p>
+    <p style="color:var(--text-muted);font-size:13px;margin-top:6px;">Assigned to: <strong>{{ audit.assignee.username if audit.assignee else 'Unassigned' }}</strong>{% if audit.assigner %} by {{ audit.assigner.username }}{% endif %}{% if audit.assigned_at %} on {{ audit.assigned_at|somali_time }}{% endif %}</p>
     {% if audit.spread_record %}<p style="color:var(--warning);font-size:13px;font-weight:700;margin-top:7px;"><i class="fas fa-tower-broadcast"></i> Claim Spread Activity: {{ audit.spread_record.submission_count }} submissions</p>{% endif %}
 </div>
+
+{% if audit.is_archived %}
+<div class="card-modern" style="margin-bottom:20px;border-left:4px solid var(--warning);">
+    <div class="card-body-modern">
+        <strong style="color:var(--warning);"><i class="fas fa-box-archive"></i> Archived case</strong>
+        <p style="margin:7px 0 0;color:var(--text-muted);line-height:1.6;">{{ audit.archive_reason or 'No archive reason was recorded.' }}{% if audit.archived_by %} Archived by {{ audit.archived_by.username }}{% endif %}{% if audit.archived_at %} on {{ audit.archived_at|somali_time }}{% endif %}.</p>
+    </div>
+</div>
+{% endif %}
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;margin-bottom:20px;">
     <div class="card-modern"><div class="card-body-modern">
         <p style="font-size:12px;color:var(--text-muted);font-weight:800;margin-bottom:10px;"><i class="fas fa-robot"></i> AI PREDICTION</p>
         <span class="badge-modern {{ audit.predicted_label|lower }}">{{ audit.predicted_label }}</span>
-        {% if audit.prediction_record %}<strong style="margin-left:10px;color:var(--text);">{{ "%.1f"|format(audit.prediction_record.confidence) }}%</strong>{% endif %}
+        {% if audit.confidence is not none %}<strong style="margin-left:10px;color:var(--text);">{{ "%.1f"|format(audit.confidence) }}%</strong>{% else %}<span style="margin-left:10px;color:var(--text-muted);">Confidence not recorded</span>{% endif %}
         <p style="color:var(--text-muted);font-size:13px;margin-top:12px;">Model: {{ audit.model_used }}</p>
         {% if audit.ai_explanation %}<p style="font-size:12px;color:var(--text-muted);font-weight:800;margin:18px 0 7px;">AI EXPLANATION</p><p style="color:var(--text-muted);line-height:1.7;">{{ audit.ai_explanation }}</p>{% endif %}
         <p style="font-size:12px;color:var(--text-muted);font-weight:800;margin:18px 0 7px;">ORIGINAL TEXT</p>
@@ -27,8 +36,10 @@
 
     <div class="card-modern"><div class="card-body-modern">
         <p style="font-size:12px;color:var(--text-muted);font-weight:800;margin-bottom:12px;"><i class="fas fa-user-check"></i> FACT-CHECKER DECISION</p>
-        {% if not audit.assignee and current_user.is_admin %}
-        <p style="color:var(--text-muted);line-height:1.6;">Assign this case to a fact-checker before review begins.</p>
+        {% if not audit.requires_fact_check %}
+        <p style="color:var(--text-muted);line-height:1.6;"><i class="fas fa-circle-check" style="color:var(--success);"></i> This Reliable prediction is complete and does not enter the fact-checker workflow. It cannot be claimed, assigned, or given a human-review decision.</p>
+        {% elif current_user.is_admin %}
+        <p style="color:var(--text-muted);line-height:1.6;">Administrator view is read-only. Inspect the claim and evidence, then assign or reassign the case to a fact-checker from the assignment queue.</p>
         <a href="{{ url_for('admin.index') }}" class="btn-modern primary" style="width:100%;justify-content:center;"><i class="fas fa-user-tag"></i> Open Assignment Queue</a>
         {% elif not audit.assignee %}
         <p style="color:var(--text-muted);line-height:1.6;">This case must be claimed before review begins.</p>
@@ -52,7 +63,7 @@
             <button type="submit" class="btn-modern primary" style="margin-top:16px;width:100%;justify-content:center;"><i class="fas fa-floppy-disk"></i> Save Decision</button>
         </form>
         {% if audit.fact_check_review %}
-        <p style="font-size:12px;color:var(--text-muted);margin-top:12px;">Last reviewed by {{ audit.fact_check_review.reviewer.username if audit.fact_check_review.reviewer else 'Deleted account' }} on {{ audit.fact_check_review.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:12px;">Last reviewed by {{ audit.fact_check_review.reviewer.username if audit.fact_check_review.reviewer else 'Deleted account' }} on {{ audit.fact_check_review.updated_at|somali_time }}</p>
         {% endif %}
         {% else %}
         <p style="color:var(--text-muted);line-height:1.6;">Only the assigned fact-checker can manage this review.</p>
@@ -65,7 +76,7 @@
     <h2 style="font-size:16px;margin-bottom:12px;"><i class="fas fa-clock-rotate-left"></i> Assignment Audit Trail</h2>
     {% for event in assignment_events|reverse %}
     <div style="padding:9px 0;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted);">
-        {{ event.created_at.strftime('%Y-%m-%d %H:%M') }} &middot; <strong>{{ event.action|replace('_',' ')|title }}</strong>
+        {{ event.created_at|somali_time }} &middot; <strong>{{ event.action|replace('_',' ')|title }}</strong>
         {% if event.actor %} by {{ event.actor.username }}{% endif %}
         {% if event.to_assignee %} &rarr; {{ event.to_assignee.username }}{% endif %}
     </div>
@@ -75,14 +86,15 @@
 
 <div class="card-modern"><div class="card-body-modern">
     <h2 style="font-size:18px;margin-bottom:6px;">Source Evidence ({{ sources|length }})</h2>
-    <p style="font-size:12px;color:var(--text-muted);margin-bottom:18px;">Check relevance, date, credibility, and whether each item repeats or refutes the claim. An official institution is primary evidence for its own announcement, while broader disputed claims still require independent corroboration.</p>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:18px;">Check relevance, date, credibility, and whether each item supports or repeats the claim, or remains unclear. An official institution is primary evidence for its own announcement, while broader disputed claims still require independent corroboration.</p>
     {% for source in sources %}
     <div style="padding:16px 0;border-top:1px solid var(--border);">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:7px;">
-            <strong style="color:var(--text);">{{ source.source }}</strong>
+            <a href="{{ url_for('sources.profile', source_id=source.id) }}" title="Open source intelligence profile" style="color:var(--text);font-weight:750;text-decoration:none;">{{ source.source }} <i class="fas fa-chart-line" style="font-size:10px;color:var(--primary);"></i></a>
             <span style="font-size:11px;color:var(--text-muted);">{{ source.platform }}{% if source.provider %} via {{ source.provider }}{% endif %}</span>
             {% if source.credibility %}<span style="font-size:10px;font-weight:700;color:var(--primary);">{{ source.credibility }}</span>{% endif %}
-            <span class="badge-modern" style="font-size:10px;">{{ 'Repeats' if audit.predicted_label in ['Misinformation','Misleading'] and source.stance == 'Supports' else source.stance }}</span>
+            {% set displayed_stance = 'Unclear' if source.stance == 'Refutes' else ('Repeats' if audit.predicted_label in ['Misinformation','Misleading'] and source.stance == 'Supports' else source.stance) %}
+            <span class="badge-modern" style="font-size:10px;">{{ displayed_stance }}</span>
             <span style="font-size:12px;font-weight:700;color:var(--primary);">{{ "%.0f"|format(source.similarity_score) }}% match</span>
             {% if source.published_date %}<span style="font-size:11px;color:var(--text-muted);"><i class="fas fa-calendar"></i> {{ source.published_date }}</span>{% endif %}
         </div>

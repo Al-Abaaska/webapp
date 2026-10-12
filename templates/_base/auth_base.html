@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Somali MD{% endblock %}</title>
+    <title>{% block title %}PMD{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/pmd-favicon.svg') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
@@ -13,32 +14,50 @@
 </head>
 <body>
     <div class="auth-bg">
-        <div style="width:100%;max-width:420px;">
-            <div class="flash-container">
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% set icon_map = {'success': 'fa-circle-check', 'danger': 'fa-circle-exclamation', 'warning': 'fa-triangle-exclamation', 'info': 'fa-circle-info', 'error': 'fa-circle-exclamation'} %}
-                        {% for category, message in messages %}
-                            {% set cat = 'danger' if category == 'error' else category %}
-                            <div class="flash-msg {{ cat }}">
-                                <span><i class="fas {{ icon_map.get(category, 'fa-bell') }}"></i> {{ message }}</span>
-                                <button class="close-btn" type="button" aria-label="Close">&times;</button>
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
-            </div>
-            {% block auth_content %}{% endblock %}
+        <div class="auth-shell">
+            <section class="auth-visual" aria-label="PMD fact-checking illustration">
+                <img src="{{ url_for('static', filename='images/pmd-auth-illustration.png') }}" alt="Somali researchers reviewing digital evidence">
+                <div class="auth-visual-shade" aria-hidden="true"></div>
+                <div class="auth-visual-copy">
+                    <span class="auth-visual-badge"><i class="fas fa-shield-halved"></i> PMD</span>
+                    <h1>Evidence before verdict.</h1>
+                    <p>Analyze Somali political information, inspect supporting sources, and follow human-reviewed decisions in one secure workspace.</p>
+                    <div class="auth-trust-row">
+                        <span><i class="fas fa-language"></i> Somali NLP</span>
+                        <span><i class="fas fa-magnifying-glass"></i> Evidence audit</span>
+                        <span><i class="fas fa-user-check"></i> Human review</span>
+                    </div>
+                </div>
+            </section>
+            <main class="auth-form-column">
+                <div class="flash-container">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% set icon_map = {'success': 'fa-circle-check', 'danger': 'fa-circle-exclamation', 'warning': 'fa-triangle-exclamation', 'info': 'fa-circle-info', 'error': 'fa-circle-exclamation'} %}
+                            {% for category, message in messages %}
+                                {% set cat = 'danger' if category == 'error' else category %}
+                                <div class="flash-msg {{ cat }}">
+                                    <span><i class="fas {{ icon_map.get(category, 'fa-bell') }}"></i> {{ message }}</span>
+                                    <button class="close-btn" type="button" aria-label="Close">&times;</button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                </div>
+                {% block auth_content %}{% endblock %}
+                <footer class="auth-footer">
+                    <i class="fas fa-shield-alt"></i> Political Misinformation Detection &mdash; JUST University
+                </footer>
+            </main>
         </div>
     </div>
     <button class="theme-toggle-float" type="button" title="Toggle theme">
         <i class="fas fa-sun icon-sun"></i>
         <i class="fas fa-moon icon-moon"></i>
     </button>
-    <footer class="auth-footer">
-        <i class="fas fa-shield-alt"></i> Somali Misinformation Detector &mdash; JUST University
-    </footer>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/progress.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/magic.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

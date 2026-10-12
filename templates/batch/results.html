@@ -1,0 +1,81 @@
+{% extends "_base/base.html" %}
+{% block title %}Batch Results - PMD{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:24px;">
+    <a href="{{ url_for('batch.index') }}" style="color:var(--primary);font-size:13px;text-decoration:none;"><i class="fas fa-arrow-left"></i> Batch workspaces</a>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap;margin-top:11px;">
+        <div><p style="color:var(--primary);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;"><i class="fas fa-chart-column"></i> Batch Summary Dashboard</p><h1 style="font-size:29px;font-weight:800;color:var(--text);margin-bottom:5px;">{{ job.filename }}</h1><p style="color:var(--text-muted);font-size:13px;">Model: {{ 'All Models - Ensemble' if job.model_used == 'ensemble' else job.model_used|replace('_',' ')|title }} &middot; Completed {{ job.created_at|somali_time }}</p></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <a href="{{ url_for('batch.download',job_id=job.id) }}" class="btn-modern primary" style="text-decoration:none;"><i class="fas fa-file-excel"></i> Export Results</a>
+        </div>
+    </div>
+</div>
+
+{% if job.status == 'error' %}<div style="padding:16px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);border-radius:12px;color:var(--danger);margin-bottom:20px;"><i class="fas fa-triangle-exclamation"></i> {{ job.error_message or 'Batch processing failed.' }}</div>{% endif %}
+
+<div class="stat-grid" style="margin-bottom:22px;">
+    {% set cards=[('Total Analyzed',summary.total_analyzed|default(0),'fa-table-list','indigo'),('Reliable',summary.reliable|default(0),'fa-circle-check','green'),('Misinformation',summary.misinformation|default(0),'fa-circle-xmark','red'),('Misleading',summary.misleading|default(0),'fa-triangle-exclamation','yellow'),('High-Risk Claims',summary.high_risk|default(0),'fa-shield-halved','red'),('Not Political',summary.not_political|default(0),'fa-ban','yellow'),('Failed Rows',summary.failed|default(0),'fa-triangle-exclamation','red')] %}
+    {% for label,value,icon,color in cards %}<div class="stat-card"><div class="stat-icon {{ color }}"><i class="fas {{ icon }}"></i></div><div class="stat-value">{{ value }}</div><div class="stat-label">{{ label }}</div></div>{% endfor %}
+</div>
+
+<div style="padding:14px 18px;border:1px solid rgba(99,102,241,.25);background:rgba(99,102,241,.07);border-radius:12px;margin-bottom:20px;color:var(--text-muted);font-size:13px;line-height:1.6;">
+    <i class="fas fa-circle-info" style="color:var(--primary);margin-right:6px;"></i> Prediction is complete. Source Evidence Audit has <strong>not</strong> been run automatically. Only Misinformation and Misleading predictions can enter fact-checker review; Reliable predictions complete without human review.
+</div>
+
+<div class="card-modern" style="margin-bottom:20px;">
+    <div class="card-header-modern"><h5><i class="fas fa-magnifying-glass-plus" style="color:var(--primary);"></i> Investigation Actions</h5><span class="text-muted-modern" id="selectionCount">0 rows selected</span></div>
+    <div class="card-body-modern" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <button class="btn-modern primary" type="button" onclick="runBatchAction('investigate')"><i class="fas fa-magnifying-glass"></i> Investigate Selected</button>
+        <button class="btn-modern" type="button" onclick="runBatchAction('send-review')"><i class="fas fa-user-check"></i> Send Eligible Selected Cases to Fact-Checker</button>
+        <span id="actionMessage" style="display:none;font-size:12px;color:var(--text-muted);"></span>
+    </div>
+</div>
+
+<div class="card-modern">
+    <div class="card-header-modern" style="gap:12px;flex-wrap:wrap;"><h5><i class="fas fa-filter" style="color:var(--primary);"></i> Results</h5><span class="text-muted-modern">{{ items.total }} matching rows</span></div>
+    <div class="card-body-modern" style="padding-bottom:12px;">
+        <form method="GET" style="display:grid;grid-template-columns:2fr repeat(2,minmax(135px,1fr)) auto;gap:9px;">
+            <input class="form-input" type="search" name="search" value="{{ search }}" placeholder="Search claim text">
+            <select class="form-input" name="prediction"><option value="">All predictions</option>{% for value in ['Reliable','Misinformation','Misleading','Not Political','Not Somali','Scope Unavailable','Invalid','Error'] %}<option value="{{ value }}" {% if prediction_filter==value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select>
+            <select class="form-input" name="risk"><option value="">All risks</option>{% for value in ['Critical','High','Medium','Low','Uncertain','Invalid'] %}<option value="{{ value }}" {% if risk_filter==value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select>
+            <button class="btn-modern" type="submit"><i class="fas fa-filter"></i> Filter</button>
+        </form>
+        {% if prediction_filter or risk_filter or search %}<a href="{{ url_for('batch.results',job_id=job.id) }}" style="display:inline-block;color:var(--primary);font-size:12px;margin-top:9px;text-decoration:none;">Clear filters</a>{% endif %}
+    </div>
+    <div class="table-container"><table><thead><tr><th><input type="checkbox" id="selectAll" aria-label="Select all eligible rows"></th><th>Row</th><th>Text</th><th>Prediction</th><th>Confidence</th><th>Risk</th><th>Investigation</th><th>Action</th></tr></thead><tbody>
+    {% for item in items.items %}
+    {% set eligible = item.prediction in ['Reliable','Misinformation','Misleading'] %}
+    <tr>
+        <td>{% if eligible %}<input type="checkbox" class="item-check" value="{{ item.id }}" aria-label="Select row {{ item.row_number }}">{% endif %}</td>
+        <td style="color:var(--text-muted);">{{ item.row_number }}</td>
+        <td style="min-width:280px;max-width:470px;"><p style="font-weight:650;color:var(--text);line-height:1.45;">{{ item.text|truncate(125) if item.text else '—' }}</p>{% if item.source_name or item.source_url %}<p style="font-size:11px;color:var(--text-muted);margin-top:4px;">{{ item.source_name }}{% if item.source_url %} &middot; <a href="{{ item.source_url }}" target="_blank" rel="noopener" style="color:var(--primary);">source</a>{% endif %}</p>{% endif %}{% if item.error_message %}<p title="{{ item.error_message }}" style="font-size:11px;color:var(--danger);margin-top:4px;">{{ item.error_message|truncate(75) }}</p>{% endif %}</td>
+        <td><span class="badge-modern {{ item.prediction|lower|replace(' ','-') }}">{{ item.prediction }}</span></td>
+        <td style="font-weight:750;white-space:nowrap;">{{ '%.1f%%'|format(item.confidence) if eligible else '—' }}</td>
+        <td>{% set risk_color='#ef4444' if item.risk in ['Critical','High'] else ('#f59e0b' if item.risk in ['Medium','Uncertain'] else ('#10b981' if item.risk=='Low' else '#64748b')) %}<span style="font-size:11px;font-weight:800;color:{{ risk_color }};white-space:nowrap;"><i class="fas fa-{{ 'triangle-exclamation' if item.risk in ['Critical','High','Medium'] else ('circle-check' if item.risk=='Low' else 'circle-question') }}"></i> {{ item.risk }}</span></td>
+        <td><span style="font-size:11px;color:{{ 'var(--success)' if item.investigation_status in ['complete','previously_checked'] else ('var(--warning)' if item.investigation_status in ['queued','running'] else ('var(--danger)' if item.investigation_status=='failed' else 'var(--text-muted)')) }};white-space:nowrap;">{{ item.investigation_status|replace('_',' ')|title }}</span></td>
+        <td style="white-space:nowrap;">
+            {% if item.investigation_audit_id %}
+                {% if item.investigation_status == 'previously_checked' %}<a href="{{ url_for('predict.previous_investigation',audit_id=item.investigation_audit_id) }}" style="color:var(--primary);font-size:12px;font-weight:700;text-decoration:none;">View Previous</a>
+                {% elif current_user.is_admin %}<a href="{{ url_for('fact_checker.review_detail',audit_id=item.investigation_audit_id) }}" style="color:var(--primary);font-size:12px;font-weight:700;text-decoration:none;">View Audit</a>
+                {% else %}<a href="{{ url_for('history.evidence_detail',audit_id=item.investigation_audit_id) }}" style="color:var(--primary);font-size:12px;font-weight:700;text-decoration:none;">View Audit</a>{% endif %}
+            {% elif eligible %}<button class="btn-modern" type="button" style="padding:6px 9px;font-size:11px;" onclick="runSingle({{ item.id }})">Investigate</button>{% else %}<span style="color:var(--text-dim);">—</span>{% endif %}
+        </td>
+    </tr>{% else %}<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:35px;">No rows match the selected filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% if items.pages > 1 %}<div style="padding:16px 20px;display:flex;justify-content:center;gap:8px;">{% if items.has_prev %}<a class="btn-modern" href="{{ url_for('batch.results',job_id=job.id,page=items.prev_num,prediction=prediction_filter,risk=risk_filter,search=search) }}">Previous</a>{% endif %}<span style="padding:9px;color:var(--text-muted);">Page {{ items.page }} of {{ items.pages }}</span>{% if items.has_next %}<a class="btn-modern" href="{{ url_for('batch.results',job_id=job.id,page=items.next_num,prediction=prediction_filter,risk=risk_filter,search=search) }}">Next</a>{% endif %}</div>{% endif %}
+</div>
+
+<style>@media(max-width:900px){.card-body-modern form{grid-template-columns:1fr!important}}</style>
+<script>
+var checks=function(){return Array.from(document.querySelectorAll('.item-check:checked')).map(function(el){return Number(el.value);});};
+function updateSelection(){document.getElementById('selectionCount').textContent=checks().length+' rows selected';}
+document.querySelectorAll('.item-check').forEach(function(el){el.addEventListener('change',updateSelection);});
+document.getElementById('selectAll').addEventListener('change',function(){document.querySelectorAll('.item-check').forEach(function(el){el.checked=document.getElementById('selectAll').checked;});updateSelection();});
+function runSingle(id){postAction('investigate',{item_ids:[id]});}
+function runBatchAction(action){var ids=checks();if(!ids.length){alert('Select at least one eligible row.');return;}postAction(action,{item_ids:ids});}
+function postAction(action,payload){var message=document.getElementById('actionMessage');message.style.display='inline';message.textContent='Queuing selected claims...';fetch('/batch/job/{{ job.id }}/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||'Action failed');return d;});}).then(function(d){var skippedReview=Number(d.review_not_required||0);message.textContent=d.message+' '+d.queued+' new audit(s).'+(skippedReview?' '+skippedReview+' Reliable row(s) did not enter human review.':'');pollInvestigations();}).catch(function(error){message.textContent=error.message;});}
+function pollInvestigations(){var timer=setInterval(function(){fetch('/batch/job/{{ job.id }}/investigation-status').then(function(r){return r.json();}).then(function(d){var message=document.getElementById('actionMessage');if(d.active>0){message.textContent='Evidence investigation running for '+d.active+' claim(s)...';}else{clearInterval(timer);location.reload();}});},2500);}
+{% if investigation_active %}pollInvestigations();{% endif %}
+</script>
+{% endblock %}

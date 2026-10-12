@@ -7,8 +7,9 @@ from flask_login import login_required, current_user
 
 from models import (
     db, Prediction, EvidenceAudit, EvidenceSource,
-    FactCheckReview, EvidenceAssignmentEvent, ClaimRecord,
+    FactCheckReview, EvidenceAssignmentEvent, ClaimRecord, Notification,
 )
+from models.evidence import FACT_CHECK_REQUIRED_LABELS
 
 FACT_CHECK_DECISIONS = (
     'Confirmed Reliable',
@@ -25,8 +26,20 @@ def fact_checker_required(f):
     @wraps(f)
     @login_required
     def decorated(*args, **kwargs):
-        if not current_user.can_fact_check:
+        if not current_user.is_fact_checker:
             flash('Fact-checker access required.', 'danger')
+            return redirect(url_for('main.dashboard'))
+        return f(*args, **kwargs)
+    return decorated
+
+
+def reviewer_or_admin_required(f):
+    """Allow fact-checkers to review and administrators to inspect a case."""
+    @wraps(f)
+    @login_required
+    def decorated(*args, **kwargs):
+        if not (current_user.is_fact_checker or current_user.is_admin):
+            flash('Fact-check case access required.', 'danger')
             return redirect(url_for('main.dashboard'))
         return f(*args, **kwargs)
     return decorated
@@ -43,11 +56,15 @@ def _record_assignment_event(audit, action, from_assignee_id=None, to_assignee_i
 
 
 def _can_manage_review(audit):
-    return current_user.is_admin or audit.assigned_to_id == current_user.id
+    return (
+        audit.requires_fact_check
+        and current_user.is_fact_checker
+        and audit.assigned_to_id == current_user.id
+    )
 
 
 def _case_risk_rank(audit):
-    confidence = audit.prediction_record.confidence if audit.prediction_record else 0
+    confidence = audit.confidence or 0
     if audit.predicted_label == 'Misinformation':
         return 'critical' if confidence >= 90 else ('high' if confidence >= 75 else 'medium')
     if audit.predicted_label == 'Misleading':
@@ -64,7 +81,9 @@ def dashboard():
     # --- Counts ---
     complete_audits = EvidenceAudit.query.filter(
         EvidenceAudit.status == 'complete',
+        EvidenceAudit.predicted_label.in_(FACT_CHECK_REQUIRED_LABELS),
         EvidenceAudit.assigned_to_id == current_user.id,
+        EvidenceAudit.is_archived.is_(False),
     )
 
     pending_count = complete_audits.filter(EvidenceAudit.review_status == 'pending').count()
@@ -76,8 +95,10 @@ def dashboard():
     total_count = complete_audits.count()
     unassigned_count = EvidenceAudit.query.filter(
         EvidenceAudit.status == 'complete',
+        EvidenceAudit.predicted_label.in_(FACT_CHECK_REQUIRED_LABELS),
         EvidenceAudit.assigned_to_id.is_(None),
         EvidenceAudit.review_status == 'unassigned',
+        EvidenceAudit.is_archived.is_(False),
     ).count()
 
     open_assigned = complete_audits.filter(
@@ -101,8 +122,10 @@ def dashboard():
         )
         .filter(
             EvidenceAudit.status == 'complete',
+            EvidenceAudit.predicted_label.in_(FACT_CHECK_REQUIRED_LABELS),
             EvidenceAudit.assigned_to_id == current_user.id,
             EvidenceAudit.review_status.in_(['pending', 'under_review']),
+            EvidenceAudit.is_archived.is_(False),
         )
         .order_by(
             case(
@@ -122,9 +145,9 @@ def dashboard():
     for audit in priority_audits:
         sources = EvidenceSource.query.filter_by(audit_id=audit.id).all()
         trusted = sum(1 for s in sources if s.evidence_kind == 'trusted')
-        refutes = sum(1 for s in sources if s.stance == 'Refutes')
         repeats = sum(1 for s in sources if s.stance == 'Repeats')
         supports = sum(1 for s in sources if s.stance == 'Supports')
+        unclear = len(sources) - repeats - supports
         avg_sim = (sum(s.similarity_score for s in sources) / len(sources)) if sources else 0
 
         # Evidence alert flags
@@ -133,23 +156,21 @@ def dashboard():
             alerts.append('no_evidence')
         elif trusted == 0:
             alerts.append('no_trusted')
-        if refutes > 0 and repeats > 0:
-            alerts.append('conflicting')
         if repeats > supports and repeats > 0:
             alerts.append('only_repeats')
         if avg_sim < 40 and len(sources) > 0:
             alerts.append('weak_match')
 
-        confidence = audit.prediction_record.confidence if audit.prediction_record else 0
+        confidence = audit.confidence or 0
         risk_level = _case_risk_rank(audit)
 
         priority_data.append({
             'audit': audit,
             'source_count': len(sources),
             'trusted_count': trusted,
-            'refutes_count': refutes,
             'repeats_count': repeats,
             'supports_count': supports,
+            'unclear_count': unclear,
             'avg_similarity': round(avg_sim, 1),
             'confidence': confidence,
             'risk_level': risk_level,
@@ -161,8 +182,10 @@ def dashboard():
         EvidenceAudit.query
         .filter(
             EvidenceAudit.status == 'complete',
+            EvidenceAudit.predicted_label.in_(FACT_CHECK_REQUIRED_LABELS),
             EvidenceAudit.assigned_to_id == current_user.id,
             EvidenceAudit.review_status.in_(['pending', 'under_review']),
+            EvidenceAudit.is_archived.is_(False),
         )
         .order_by(EvidenceAudit.created_at.desc())
         .limit(20)
@@ -173,7 +196,6 @@ def dashboard():
     for audit in alert_audits:
         sources = EvidenceSource.query.filter_by(audit_id=audit.id).all()
         trusted = sum(1 for s in sources if s.evidence_kind == 'trusted')
-        refutes = sum(1 for s in sources if s.stance == 'Refutes')
         repeats = sum(1 for s in sources if s.stance == 'Repeats')
         supports = sum(1 for s in sources if s.stance == 'Supports')
 
@@ -185,9 +207,6 @@ def dashboard():
         elif trusted == 0:
             alert_type = 'warning'
             alert_msg = 'No trusted Somali source confirmation'
-        elif refutes > 0 and supports > 0:
-            alert_type = 'warning'
-            alert_msg = f'Conflicting sources: {supports} support, {refutes} refute'
         elif repeats > supports and repeats >= 2:
             alert_type = 'info'
             alert_msg = f'Content only repeated {repeats} times, not independently verified'
@@ -205,7 +224,10 @@ def dashboard():
     reviewed_audits = (
         EvidenceAudit.query
         .join(FactCheckReview)
-        .filter(FactCheckReview.reviewer_id == current_user.id)
+        .filter(
+            FactCheckReview.reviewer_id == current_user.id,
+            EvidenceAudit.is_archived.is_(False),
+        )
         .order_by(FactCheckReview.updated_at.desc())
         .limit(50)
         .all()
@@ -230,7 +252,10 @@ def dashboard():
     recent_decisions = (
         EvidenceAudit.query
         .join(FactCheckReview)
-        .filter(FactCheckReview.reviewer_id == current_user.id)
+        .filter(
+            FactCheckReview.reviewer_id == current_user.id,
+            EvidenceAudit.is_archived.is_(False),
+        )
         .order_by(FactCheckReview.updated_at.desc())
         .limit(5)
         .all()
@@ -241,8 +266,10 @@ def dashboard():
         EvidenceAudit.query
         .filter(
             EvidenceAudit.status == 'complete',
+            EvidenceAudit.predicted_label.in_(FACT_CHECK_REQUIRED_LABELS),
             EvidenceAudit.assigned_to_id == current_user.id,
             EvidenceAudit.review_status.in_(['pending', 'under_review']),
+            EvidenceAudit.is_archived.is_(False),
         )
         .order_by(
             case(
@@ -279,7 +306,11 @@ def index():
     from sqlalchemy import and_, or_
     page = request.args.get('page', 1, type=int)
     status = request.args.get('status', 'pending')
-    query = EvidenceAudit.query.filter(EvidenceAudit.status == 'complete')
+    query = EvidenceAudit.query.filter(
+        EvidenceAudit.status == 'complete',
+        EvidenceAudit.predicted_label.in_(FACT_CHECK_REQUIRED_LABELS),
+        EvidenceAudit.is_archived.is_(False),
+    )
 
     if status == 'under_review':
         query = query.filter(
@@ -291,17 +322,22 @@ def index():
             FactCheckReview.reviewer_id == current_user.id
         )
     elif status == 'high_risk':
-        query = query.join(Prediction, EvidenceAudit.prediction_id == Prediction.id).filter(
+        stored_confidence = db.func.coalesce(
+            EvidenceAudit.prediction_confidence, Prediction.confidence, 0
+        )
+        query = query.outerjoin(
+            Prediction, EvidenceAudit.prediction_id == Prediction.id
+        ).filter(
             EvidenceAudit.assigned_to_id == current_user.id,
             EvidenceAudit.review_status.in_(['pending', 'under_review']),
             or_(
                 and_(
                     EvidenceAudit.predicted_label == 'Misinformation',
-                    Prediction.confidence >= 75,
+                    stored_confidence >= 75,
                 ),
                 and_(
                     EvidenceAudit.predicted_label == 'Misleading',
-                    Prediction.confidence >= 80,
+                    stored_confidence >= 80,
                 ),
             ),
         )
@@ -326,10 +362,16 @@ def index():
 
 
 @fact_checker_bp.route('/audit/<int:audit_id>')
-@fact_checker_required
+@reviewer_or_admin_required
 def review_detail(audit_id):
     audit = EvidenceAudit.query.get_or_404(audit_id)
-    if not current_user.is_admin and audit.assigned_to_id not in (None, current_user.id):
+    if current_user.is_fact_checker and not audit.requires_fact_check:
+        flash('Reliable predictions do not enter the fact-checker workflow.', 'info')
+        return redirect(url_for('fact_checker.index'))
+    if audit.is_archived and not current_user.is_admin:
+        flash('This case has been archived by an administrator.', 'info')
+        return redirect(url_for('fact_checker.index'))
+    if current_user.is_fact_checker and audit.assigned_to_id not in (None, current_user.id):
         flash('This case is assigned to another fact-checker.', 'danger')
         return redirect(url_for('fact_checker.index'))
     sources = EvidenceSource.query.filter_by(audit_id=audit.id).order_by(
@@ -360,8 +402,10 @@ def claim_case(audit_id):
     updated = EvidenceAudit.query.filter(
         EvidenceAudit.id == audit_id,
         EvidenceAudit.status == 'complete',
+        EvidenceAudit.predicted_label.in_(FACT_CHECK_REQUIRED_LABELS),
         EvidenceAudit.assigned_to_id.is_(None),
         EvidenceAudit.review_status == 'unassigned',
+        EvidenceAudit.is_archived.is_(False),
     ).update({
         EvidenceAudit.assigned_to_id: current_user.id,
         EvidenceAudit.assigned_at: now,
@@ -382,6 +426,12 @@ def claim_case(audit_id):
 @fact_checker_required
 def start_review(audit_id):
     audit = EvidenceAudit.query.get_or_404(audit_id)
+    if not audit.requires_fact_check:
+        flash('Reliable predictions do not require fact-checker review.', 'info')
+        return redirect(url_for('fact_checker.index'))
+    if audit.is_archived:
+        flash('Archived cases cannot be reviewed until an administrator restores them.', 'warning')
+        return redirect(url_for('fact_checker.index'))
     if not _can_manage_review(audit):
         flash('Only the assigned fact-checker can start this review.', 'danger')
         return redirect(url_for('fact_checker.index'))
@@ -398,6 +448,12 @@ def start_review(audit_id):
 @fact_checker_required
 def submit_decision(audit_id):
     audit = EvidenceAudit.query.get_or_404(audit_id)
+    if not audit.requires_fact_check:
+        flash('Reliable predictions do not require fact-checker review.', 'info')
+        return redirect(url_for('fact_checker.index'))
+    if audit.is_archived:
+        flash('Archived cases cannot receive a decision until an administrator restores them.', 'warning')
+        return redirect(url_for('fact_checker.index'))
     if audit.status != 'complete':
         flash('This evidence audit is not complete yet.', 'warning')
         return redirect(url_for('fact_checker.review_detail', audit_id=audit.id))
@@ -434,6 +490,33 @@ def submit_decision(audit_id):
         audit, 'decision_updated' if was_completed else 'review_completed',
         audit.assigned_to_id, audit.assigned_to_id,
     )
+    notification = Notification.query.filter_by(
+        user_id=audit.user_id,
+        audit_id=audit.id,
+        notification_type='final_decision',
+    ).first()
+    if notification is None:
+        notification = Notification(
+            user_id=audit.user_id,
+            audit_id=audit.id,
+            notification_type='final_decision',
+            title=f'Final decision published for FC-{audit.id}',
+            message=(
+                f'Fact-checker decision: {decision}. Open the tracker to read '
+                'the explanation and reviewed evidence.'
+            ),
+        )
+        db.session.add(notification)
+    else:
+        # Reuse the original notification if a completed decision is corrected.
+        notification.title = f'Final decision updated for FC-{audit.id}'
+        notification.message = (
+            f'Updated fact-checker decision: {decision}. Open the tracker to '
+            'read the latest explanation and reviewed evidence.'
+        )
+        notification.is_read = False
+        notification.read_at = None
+        notification.created_at = datetime.utcnow()
     db.session.commit()
     flash('Fact-checker decision saved.', 'success')
     return redirect(url_for('fact_checker.review_detail', audit_id=audit.id))
